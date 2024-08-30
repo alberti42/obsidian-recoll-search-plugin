@@ -88,8 +88,8 @@ export default class RecollSearch extends Plugin {
         setDebouncingTime(this.settings.debouncingTime);
 	}
 
-	async saveSettings() {
-		
+	saveSettings() {
+        this.saveData(this.settings);
 	}
 
     // Event handler for file creation
@@ -164,7 +164,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
                             // Hide the warning and save the valid value
                             debouncing_time_warningEl.style.display = 'none';
                             this.plugin.settings.debouncingTime = parsedValue;
-                            await this.plugin.saveSettings();
+                            this.plugin.saveSettings();
                         }
                     });
             });
@@ -176,6 +176,8 @@ class RecollSearchSettingTab extends PluginSettingTab {
                 .onClick(() => {
                     const value = DEFAULT_SETTINGS.debouncingTime;
                     debouncing_time_text.setValue(`${value}`);
+                    this.plugin.settings.debouncingTime = value;
+                    this.plugin.saveSettings();
                 });
         });
 
