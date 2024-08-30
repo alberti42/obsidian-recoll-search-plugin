@@ -23,7 +23,8 @@ import { RecollSearchSettings as RecollSearchSettings } from "types";
 
 import { monkeyPatchConsole, unpatchConsole } from "patchConsole";
 
-import { runRecollIndexDebounced, setDebouncingTime, setPluginReference } from "recoll";
+import { runRecollIndex, runRecollIndexDebounced, setDebouncingTime, setPluginReference } from "recoll";
+import { debounceFactory } from "utils";
 
 // Helper function to check if a node is an Element
 function isElement(node: Node): node is Element {
@@ -40,6 +41,8 @@ export default class RecollSearch extends Plugin {
     settingsTab: RecollSearchSettingTab;
     menu: Element | null = null;
 
+    runRecollIndexDebounced:()=>void;
+
 	constructor(app: App, manifest: PluginManifest) {
 		super(app, manifest);
 
@@ -49,6 +52,8 @@ export default class RecollSearch extends Plugin {
         }
 
         setPluginReference(this);
+
+        this.runRecollIndexDebounced = debounceFactory(runRecollIndex, DEFAULT_SETTINGS.debouncingTime);
 
 		this.settingsTab = new RecollSearchSettingTab(this.app, this);
 	}
@@ -61,12 +66,13 @@ export default class RecollSearch extends Plugin {
 
 		// console.log('Loaded plugin Recoll Search');
 
-        const self = this;
-
         // Inside your plugin's onload() method
-        this.registerEvent(this.app.vault.on('create', (file: TAbstractFile) => this.onFileCreate(file)));
-        this.registerEvent(this.app.vault.on('modify', (file: TAbstractFile) => this.onFileModify(file)));
-        this.registerEvent(this.app.vault.on('delete', (file: TAbstractFile) => this.onFileDelete(file)));
+        // this.registerEvent(this.app.vault.on('create', (file: TAbstractFile) => this.onFileCreate(file)));
+        // this.registerEvent(this.app.vault.on('modify', (file: TAbstractFile) => this.onFileModify(file)));
+        // this.registerEvent(this.app.vault.on('delete', (file: TAbstractFile) => this.onFileDelete(file)));
+        this.registerEvent(this.app.vault.on('create', this.runRecollIndexDebounced));
+        this.registerEvent(this.app.vault.on('modify', this.runRecollIndexDebounced));
+        this.registerEvent(this.app.vault.on('delete', this.runRecollIndexDebounced));
 
         this.app.workspace.onLayoutReady(() => {
             
@@ -101,6 +107,10 @@ export default class RecollSearch extends Plugin {
     private onFileDelete(file: TAbstractFile): void {
         if(this.settings.debug) console.log(`File deleted: ${file.path}`);
         runRecollIndexDebounced();
+    }
+
+    private updateDebouncingTime() {
+        this.runRecollIndexDebounced = debounceFactory(runRecollIndex, this.settings.debouncingTime);
     }
 }
 

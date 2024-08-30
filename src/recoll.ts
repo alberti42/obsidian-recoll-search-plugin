@@ -16,7 +16,7 @@ export function setDebouncingTime(debouncingTime:number) {
     runRecollIndexDebounced = debounceFactory(runRecollIndex, debouncingTime);
 }
 
-function runRecollIndex(): void {
+export async function runRecollIndex(): Promise<void> {
     const brewPath = '/opt/homebrew/bin'; // Homebrew bin path
     const pythonPath = '/Users/andrea/.local/opt/homebrew/lib/python3.12/site-packages';
     const recollDataDir = '/Users/andrea/.local/share/recoll/';
@@ -25,7 +25,7 @@ function runRecollIndex(): void {
     const command = `
         RECOLL_DATADIR='${recollDataDir}' PYTHONPATH='${pythonPath}' \
             /Users/andrea/.local/bin/recollindex`;
-
+    
     exec(command, {
         env: {
                 ...process.env,
@@ -46,13 +46,12 @@ function runRecollIndex(): void {
                 //  However, we keep stderr for the log output as it is the default option
                 //  Note that we cannot use `stdout` as a string because it is not recognized by recoll.
                 if(error || (plugin && plugin.settings.debug)) {
-                    console.log(`recollindex stderr: ${stderr}`);
+                    console.log(`recollindex stderr:\n${stderr}`);
                 }
             }
 
             // By default settings, recoll has nothing on stdouts
-            // console.log(`recollindex stdout: ${stdout}`);
+            // console.log(`recollindex stdout:\n${stdout}`);
         }
     );
 }
-
