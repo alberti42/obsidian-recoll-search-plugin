@@ -2,15 +2,23 @@
 
 import { ParsedPath } from "types";
 import { promises as fs } from 'fs';
+import {networkInterfaces, hostname } from "os";
 
-// Utility to debounce rebuilds
-export function debounceFactory<F extends (...args: unknown[]) => unknown>(func: F, wait: number) {
-    let timeout: ReturnType<typeof setTimeout>;
+export function getHostname():string {
+    return hostname();
+}
 
-    return (...args: Parameters<F>): void => {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func(...args), wait);
-    };
+export function getMACAddress(): string {
+    const nets = networkInterfaces();
+    for (const name of Object.keys(nets)) {
+        for (const net of nets[name]!) {
+            // Skip over non-IPv4 and internal (i.e., 127.0.0.1) addresses
+            if (net.family === "IPv4" && !net.internal) {
+                return net.mac; // Return the MAC address
+            }
+        }
+    }
+    return "00:00:00:00:00:00"; // Fallback MAC address
 }
 
 // Joins multiple path segments into a single normalized path.

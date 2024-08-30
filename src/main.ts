@@ -25,7 +25,8 @@ import { RecollSearchLocalSettings, RecollSearchSettings as RecollSearchSettings
 import { monkeyPatchConsole, unpatchConsole } from "patchConsole";
 
 import { runRecollIndex, runRecollIndexDebounced, setDebouncingTime, setPluginReference } from "recoll";
-import { debounceFactory, doesDirectoryExists, doesFileExists, joinPaths, parseFilePath } from "utils";
+import { doesDirectoryExists, doesFileExists, getMACAddress, joinPaths, parseFilePath } from "utils";
+import { getMaxListeners } from "process";
 
 // Helper function to check if a node is an Element
 function isElement(node: Node): node is Element {
@@ -42,10 +43,7 @@ export default class RecollSearch extends Plugin {
     localSettings: RecollSearchLocalSettings = { ...DEFAULT_LOCAL_SETTINGS };
     
     private settingsTab: RecollSearchSettingTab;
-    private localDataPath: string;
-
-    runRecollIndexDebounced:()=>void;
-
+    
 	constructor(app: App, manifest: PluginManifest) {
 		super(app, manifest);
 
@@ -61,18 +59,7 @@ export default class RecollSearch extends Plugin {
 
         setPluginReference(this);
 
-        this.runRecollIndexDebounced = debounceFactory(runRecollIndex, DEFAULT_SETTINGS.debouncingTime);
-
 		this.settingsTab = new RecollSearchSettingTab(this.app, this);
-
-        // Path to plugins folder
-        const pluginsPath = app.plugins.getPluginFolder();
-
-        // Path to this plugin folder in the vault
-        const pluginPath = joinPaths(pluginsPath,manifest.id);
-
-        // Path where local settings are stored
-        this.localDataPath = joinPaths(pluginPath,'data.local.json');
 	}
 
 	// Load plugin settings
@@ -87,44 +74,25 @@ export default class RecollSearch extends Plugin {
         // this.registerEvent(this.app.vault.on('create', (file: TAbstractFile) => this.onFileCreate(file)));
         // this.registerEvent(this.app.vault.on('modify', (file: TAbstractFile) => this.onFileModify(file)));
         // this.registerEvent(this.app.vault.on('delete', (file: TAbstractFile) => this.onFileDelete(file)));
-        this.registerEvent(this.app.vault.on('create', this.runRecollIndexDebounced));
-        this.registerEvent(this.app.vault.on('modify', this.runRecollIndexDebounced));
-        this.registerEvent(this.app.vault.on('delete', this.runRecollIndexDebounced));
+        this.registerEvent(this.app.vault.on('create', runRecollIndexDebounced));
+        this.registerEvent(this.app.vault.on('modify', runRecollIndexDebounced));
+        this.registerEvent(this.app.vault.on('delete', runRecollIndexDebounced));
 
         this.app.workspace.onLayoutReady(() => {
-            
         });
 	}
 
 	onunload() {
 	}
 
-     // Overriding the default loadData method to specify the filename
-    async loadLocalData(): Promise<any> {
-        const adapter = this.app.vault.adapter;
-        try {
-            const data = await adapter.read(this.localDataPath);
-            return JSON.parse(data);
-        } catch (err) {
-            return null; // Return null if the file doesn't exist
-        }
-    }
-
 	async loadSettings() {
     	this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-        this.localSettings = Object.assign({}, DEFAULT_LOCAL_SETTINGS, await this.loadLocalData());
+        this.localSettings = Object.assign({}, DEFAULT_LOCAL_SETTINGS, this.settings.localSettings[getMACAddress()]);
         setDebouncingTime(this.settings.debouncingTime);
 	}
 
-    // Overriding the default saveData method to specify the filename
-    async saveLocalData(data: any): Promise<void> {
-        const lastDataModifiedTime = Date.now();
-        await this.app.vault.writeJson(this.localDataPath, data, {
-            mtime: lastDataModifiedTime
-        });
-    }
-
     async saveSettings() {
+        this.settings.localSettings[getMACAddress()] = this.localSettings;
         await this.saveData(this.settings);
     }
 
@@ -145,10 +113,6 @@ export default class RecollSearch extends Plugin {
         if(this.settings.debug) console.log(`File deleted: ${file.path}`);
         runRecollIndexDebounced();
     }
-
-    private updateDebouncingTime() {
-        this.runRecollIndexDebounced = debounceFactory(runRecollIndex, this.settings.debouncingTime);
-    }
 }
 
 // Plugin settings tab
@@ -164,6 +128,8 @@ class RecollSearchSettingTab extends PluginSettingTab {
 
 	display(): void {
 		const { containerEl } = this;
+        
+        const MACAddress = getMACAddress();
 
 		containerEl.empty();
 
@@ -171,7 +137,8 @@ class RecollSearchSettingTab extends PluginSettingTab {
 
         const recollindex_setting = new Setting(containerEl)
             .setName("Path to recollindex utility")
-            .setDesc("Absolute path to 'recollindex' utility.");
+            .setDesc(`Absolute path to 'recollindex' utility. \
+                This setting applies to this local host with MAC address '${MACAddress}'.`);
 
         let recollindex_text:TextComponent;
         recollindex_setting.addText(text => {
@@ -195,7 +162,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
                         // Hide the warning and save the valid value
                         warningEl.style.display = 'none';
                         this.plugin.localSettings.recollindexCmd = value;
-                        this.plugin.saveLocalData(this.plugin.localSettings);
+                        this.plugin.saveSettings();
                     }
                 })
             });
@@ -208,14 +175,15 @@ class RecollSearchSettingTab extends PluginSettingTab {
                     const value = DEFAULT_LOCAL_SETTINGS.recollindexCmd;
                     recollindex_text.setValue(value);
                     this.plugin.localSettings.recollindexCmd = value;
-                    this.plugin.saveLocalData(this.plugin.localSettings);
+                    this.plugin.saveSettings();
                 });
         });
 
 
         const python_path_setting = new Setting(containerEl)
             .setName("Path to site-packages directory")
-            .setDesc("Absolute path (PYTHONPATH) to 'site-packages' directory that contains the python module 'recoll'.");
+            .setDesc(`Absolute path (PYTHONPATH) to 'site-packages' directory that contains the python module 'recoll'. \
+                    This setting applies to this local host with MAC address '${MACAddress}'.`);
 
         let python_path_text:TextComponent;
         python_path_setting.addText(text => {
@@ -239,7 +207,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
                         // Hide the warning and save the valid value
                         python_path_warningEl.style.display = 'none';
                         this.plugin.localSettings.pythonPath = value;
-                        await this.plugin.saveLocalData(this.plugin.localSettings);
+                        await this.plugin.saveSettings();
                     }
                 })
             });
@@ -252,13 +220,14 @@ class RecollSearchSettingTab extends PluginSettingTab {
                     const value = DEFAULT_LOCAL_SETTINGS.pythonPath;
                     python_path_text.setValue(value);
                     this.plugin.localSettings.pythonPath = value;
-                    this.plugin.saveLocalData(this.plugin.localSettings);
+                    this.plugin.saveSettings();
                 });
         });
 
         const recoll_datadir_setting = new Setting(containerEl)
             .setName("Path to share/recoll directory")
-            .setDesc("Absolute path (RECOLL_DATADIR) to recoll data directory 'recoll/share'.");
+            .setDesc(`Absolute path (RECOLL_DATADIR) to recoll data directory 'recoll/share'. \
+                This setting applies to this local host with MAC address '${MACAddress}'.`);
 
         let recoll_datadir_text:TextComponent;
         recoll_datadir_setting.addText(text => {
@@ -282,7 +251,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
                         // Hide the warning and save the valid value
                         warningEl.style.display = 'none';
                         this.plugin.localSettings.recollDataDir = value;
-                        this.plugin.saveLocalData(this.plugin.localSettings);
+                        this.plugin.saveSettings();
                     }
                 })
             });
@@ -295,13 +264,14 @@ class RecollSearchSettingTab extends PluginSettingTab {
                     const value = DEFAULT_LOCAL_SETTINGS.recollDataDir;
                     recoll_datadir_text.setValue(value);
                     this.plugin.localSettings.recollDataDir = value;
-                    this.plugin.saveLocalData(this.plugin.localSettings);
+                    this.plugin.saveSettings();
                 });
         });
 
         const path_extensions_setting = new Setting(containerEl)
             .setName("Directories to be added to $PATH")
-            .setDesc("List of absolute paths to directories separated by ':' that are added to $PATH.");
+            .setDesc(`List of absolute paths to directories separated by ':' that are added to $PATH. \
+                This setting applies to this local host with MAC address '${MACAddress}'.`);
 
         let path_extensions_text:TextComponent;
         path_extensions_setting.addText(text => {
@@ -334,7 +304,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
                         // Hide the warning and save the valid value
                         warningEl.style.display = 'none';
                         this.plugin.localSettings.pathExtensions = paths.filter((path:string) => path !== "");
-                        this.plugin.saveLocalData(this.plugin.localSettings);
+                        this.plugin.saveSettings();
                     }
                 })
             });
@@ -347,7 +317,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
                     const values = DEFAULT_LOCAL_SETTINGS.pathExtensions;
                     recoll_datadir_text.setValue(values.join(':'));
                     this.plugin.localSettings.pathExtensions = values;
-                    this.plugin.saveLocalData(this.plugin.localSettings);
+                    this.plugin.saveSettings();
                 });
         });
 
@@ -382,6 +352,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
                             debouncing_time_warningEl.style.display = 'none';
                             this.plugin.settings.debouncingTime = parsedValue;
                             this.plugin.saveSettings();
+                            setDebouncingTime(parsedValue);
                         }
                     });
             });
@@ -395,6 +366,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
                     debouncing_time_text.setValue(`${value}`);
                     this.plugin.settings.debouncingTime = value;
                     this.plugin.saveSettings();
+                    setDebouncingTime(value);
                 });
         });
 

@@ -2,28 +2,33 @@
 
 import { exec } from 'child_process';
 import RecollSearch from 'main';
-import { debounceFactory } from 'utils';
 
 let plugin:RecollSearch;
+let debouncingTime:number;
+let timeout: ReturnType<typeof setTimeout>;
 
-export let runRecollIndexDebounced:()=>void;
+export function runRecollIndexDebounced():void {
+    clearTimeout(timeout);
+    timeout = setTimeout(runRecollIndex, debouncingTime);
+}
 
 export function setPluginReference(p:RecollSearch) {
     plugin = p;
 }
 
-export function setDebouncingTime(debouncingTime:number) {
-    runRecollIndexDebounced = debounceFactory(runRecollIndex, debouncingTime);
+export function setDebouncingTime(t:number) {
+    debouncingTime = t;
 }
 
 export async function runRecollIndex(): Promise<void> {
-    const pythonPath = plugin.localSettings.pythonPath; // '/Users/andrea/.local/opt/homebrew/lib/python3.12/site-packages';
-    const recollDataDir = plugin.localSettings.recollDataDir; // '/Users/andrea/.local/share/recoll/';
-    const pathExtension = plugin.localSettings.pathExtensions.join(':'); // /opt/homebrew/bin
-
-    // Construct the command to include an explicit exit code check
-    const recollindex_cmd = plugin.localSettings.recollindexCmd; // /Users/andrea/.local/bin/recollindex
+    const recollindex_cmd = plugin.localSettings.recollindexCmd;
     
+    if(recollindex_cmd === "") return;
+
+    const pythonPath = plugin.localSettings.pythonPath;
+    const recollDataDir = plugin.localSettings.recollDataDir;
+    const pathExtension = plugin.localSettings.pathExtensions.join(':');
+
     exec(recollindex_cmd, {
         env: {
                 ...process.env,

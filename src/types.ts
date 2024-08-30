@@ -6,6 +6,7 @@ export interface RecollSearchSettings {
     debug: boolean;
     debouncingTime: number; // debouncing time in ms before running recollindex 
     compatibility: "1.0";
+    localSettings: {[MACAddress:string]: RecollSearchLocalSettings};
     logs?: Record<string, string[]>; // To include logs on mobile apps
 }
 
