@@ -17,6 +17,7 @@ import {
 	TextComponent,
 	normalizePath,
     ToggleComponent,
+    EventRef,
 } from "obsidian";
 
 import { DEFAULT_LOCAL_SETTINGS, DEFAULT_SETTINGS } from "default";
@@ -43,10 +44,13 @@ export default class RecollSearch extends Plugin {
     localSettings: RecollSearchLocalSettings = { ...DEFAULT_LOCAL_SETTINGS };
     
     private settingsTab: RecollSearchSettingTab;
+    private createEventRef: EventRef|null = null;
+    private modifyEventRef: EventRef|null = null;
+    private deleteEventRef: EventRef|null = null;
     
 	constructor(app: App, manifest: PluginManifest) {
 		super(app, manifest);
-
+        
         const adapter = this.app.vault.adapter;
         if (!(adapter instanceof FileSystemAdapter)) {
             throw new Error("The vault folder could not be determined.");
@@ -70,19 +74,39 @@ export default class RecollSearch extends Plugin {
 
 		// console.log('Loaded plugin Recoll Search');
 
-        // Inside your plugin's onload() method
-        // this.registerEvent(this.app.vault.on('create', (file: TAbstractFile) => this.onFileCreate(file)));
-        // this.registerEvent(this.app.vault.on('modify', (file: TAbstractFile) => this.onFileModify(file)));
-        // this.registerEvent(this.app.vault.on('delete', (file: TAbstractFile) => this.onFileDelete(file)));
-        this.registerEvent(this.app.vault.on('create', runRecollIndexDebounced));
-        this.registerEvent(this.app.vault.on('modify', runRecollIndexDebounced));
-        this.registerEvent(this.app.vault.on('delete', runRecollIndexDebounced));
+        this.registerEvents();
 
         this.app.workspace.onLayoutReady(() => {
         });
 	}
 
+    private registerEvents() {
+        this.createEventRef = this.app.vault.on('create', runRecollIndexDebounced);
+        this.modifyEventRef = this.app.vault.on('modify', runRecollIndexDebounced);
+        this.deleteEventRef = this.app.vault.on('delete', runRecollIndexDebounced);
+
+        this.registerEvent(this.createEventRef);
+        this.registerEvent(this.modifyEventRef);
+        this.registerEvent(this.deleteEventRef);  
+    }
+
+    private unregisterEvents() {
+        if(this.createEventRef) {
+            this.app.vault.offref(this.createEventRef);
+            this.createEventRef = null;
+        }
+        if(this.modifyEventRef) {
+            this.app.vault.offref(this.modifyEventRef);
+            this.modifyEventRef = null;
+        }
+        if(this.deleteEventRef) {
+            this.app.vault.offref(this.deleteEventRef);
+            this.deleteEventRef = null;
+        }
+    }
+
 	onunload() {
+        this.unregisterEvents();
 	}
 
 	async loadSettings() {
