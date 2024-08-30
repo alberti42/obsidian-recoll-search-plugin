@@ -1,0 +1,11 @@
+{
+  "id": "recoll-search",
+  "name": "Recoll search engine",
+  "version": "1.0.0",
+  "minAppVersion": "1.5.0",
+  "description": "Allows searching files using Recoll search engine",
+  "author": "Andrea Alberti",
+  "authorUrl": "https://www.linkedin.com/in/dr-andrea-alberti/",
+  "fundingUrl": "https://buymeacoffee.com/alberti",
+  "isDesktopOnly": true
+}
