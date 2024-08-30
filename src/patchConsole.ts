@@ -1,5 +1,5 @@
 import { Platform } from "obsidian";
-import RecollSearchManager from "main";
+import RecollSearch from "main";
 
 let originalConsole = {
 	debug: null as ((message?: unknown, ...optionalParams: unknown[]) => void) | null,
@@ -10,7 +10,7 @@ let originalConsole = {
 };
 
 // Helper function to patch console logs on mobile
-export function monkeyPatchConsole(plugin: RecollSearchManager) {
+export function monkeyPatchConsole(plugin: RecollSearch) {
 	if (Platform.isDesktopApp) return;
 
 	const logs: Record<string, string[]> = plugin.settings.logs || {};
