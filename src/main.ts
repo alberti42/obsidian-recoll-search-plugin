@@ -16,6 +16,7 @@ import {
 	PluginManifest,
 	TextComponent,
 	normalizePath,
+    ToggleComponent,
 } from "obsidian";
 
 import { DEFAULT_SETTINGS } from "default";
@@ -130,6 +131,79 @@ class RecollSearchSettingTab extends PluginSettingTab {
 
 		containerEl.empty();
 
+        new Setting(containerEl).setName('Indexing').setHeading();
+        let debouncing_time_warningEl:HTMLDivElement;
+        const debouncing_time_setting = new Setting(containerEl)
+            .setName('Debouncing time for recollindex')
+            .setDesc(createFragment((frag:DocumentFragment)=> {
+                frag.createDiv('A delay in milliseconds to be waited after any change to the vault before recollindex is executed.');
+                debouncing_time_warningEl = frag.createDiv({ cls: 'mod-warning' });
+            }))
+        
+        let debouncing_time_text:TextComponent;
+        debouncing_time_setting.addText(text => {
+                debouncing_time_text = text;
+                
+                debouncing_time_warningEl.style.display = 'none';  // Initially hide the warning
+                return text
+                    .setPlaceholder('Delay in milliseconds')
+                    .setValue(`${this.plugin.settings.debouncingTime}`)
+                    .onChange(async (value) => {
+                        // Remove any previous warning text
+                        debouncing_time_warningEl.textContent = '';
+
+                        // Try to parse the input as an integer
+                        const parsedValue = parseInt(value, 10);
+
+                        // Check if the value is a valid number and greater than or equal to 0
+                        if (isNaN(parsedValue) || parsedValue < 0) {
+                            // Show warning if the input is invalid
+                            debouncing_time_warningEl.textContent = 'Please enter a valid number for the delay.';
+                            debouncing_time_warningEl.style.display = 'block';
+                        } else {
+                            // Hide the warning and save the valid value
+                            debouncing_time_warningEl.style.display = 'none';
+                            this.plugin.settings.debouncingTime = parsedValue;
+                            await this.plugin.saveSettings();
+                        }
+                    });
+            });
+
+        debouncing_time_setting.addExtraButton((button) => {
+            button
+                .setIcon("reset")
+                .setTooltip("Reset to default value")
+                .onClick(() => {
+                    const value = DEFAULT_SETTINGS.debouncingTime;
+                    debouncing_time_text.setValue(`${value}`);
+                });
+        });
+
+
+        const debug_setting = new Setting(containerEl)
+            .setName('Show debug infos')
+            .setDesc('If this option is enabled, debug infos are shown in the development console.');
+
+        let debug_toggle: ToggleComponent;
+        debug_setting.addToggle(toggle => {
+            debug_toggle = toggle;
+            toggle
+            .setValue(this.plugin.settings.debug)
+            .onChange(async (value: boolean) => {
+                this.plugin.settings.debug = value;
+                this.plugin.saveSettings();
+            })
+        });
+
+        debug_setting.addExtraButton((button) => {
+            button
+                .setIcon("reset")
+                .setTooltip("Reset to default value")
+                .onClick(() => {
+                    const value = DEFAULT_SETTINGS.debug;
+                    debug_toggle.setValue(value);
+                });
+        });
 	}
 
 	hide(): void {   
