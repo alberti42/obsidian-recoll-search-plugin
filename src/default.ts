@@ -1,6 +1,6 @@
 // defaults.ts
 
-import { RecollSearchSettings } from 'types'
+import { RecollSearchLocalSettings, RecollSearchSettings } from 'types'
 
 // Default plugin settings
 export const DEFAULT_SETTINGS: RecollSearchSettings = {
@@ -9,3 +9,10 @@ export const DEFAULT_SETTINGS: RecollSearchSettings = {
 	logs: {}, // Initialize logs as an empty array
 	compatibility: '1.0'
 };
+
+export const DEFAULT_LOCAL_SETTINGS: RecollSearchLocalSettings = {
+    pythonPath: '',
+    recollDataDir: '',
+    pathExtensions: [''],
+    recollindexCmd: '',
+}

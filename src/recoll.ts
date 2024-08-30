@@ -17,19 +17,17 @@ export function setDebouncingTime(debouncingTime:number) {
 }
 
 export async function runRecollIndex(): Promise<void> {
-    const brewPath = '/opt/homebrew/bin'; // Homebrew bin path
-    const pythonPath = '/Users/andrea/.local/opt/homebrew/lib/python3.12/site-packages';
-    const recollDataDir = '/Users/andrea/.local/share/recoll/';
+    const pythonPath = plugin.localSettings.pythonPath; // '/Users/andrea/.local/opt/homebrew/lib/python3.12/site-packages';
+    const recollDataDir = plugin.localSettings.recollDataDir; // '/Users/andrea/.local/share/recoll/';
+    const pathExtension = plugin.localSettings.pathExtensions.join(':'); // /opt/homebrew/bin
 
     // Construct the command to include an explicit exit code check
-    const command = `
-        RECOLL_DATADIR='${recollDataDir}' PYTHONPATH='${pythonPath}' \
-            /Users/andrea/.local/bin/recollindex`;
+    const recollindex_cmd = plugin.localSettings.recollindexCmd; // /Users/andrea/.local/bin/recollindex
     
-    exec(command, {
+    exec(recollindex_cmd, {
         env: {
                 ...process.env,
-                PATH: `${brewPath}:${process.env.PATH}`, // Ensure Homebrew Python and binaries are in the PATH
+                PATH: `${pathExtension}:${process.env.PATH}`, // Ensure Homebrew Python and binaries are in the PATH
                 PYTHONPATH: pythonPath, // Add the path to custom Python packages
                 RECOLL_DATADIR: recollDataDir,  // Add the path to recoll's share folder
             }
