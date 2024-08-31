@@ -41,16 +41,19 @@ class MDhandler(RclBaseHandler):
 
     def extract_tags(self, frontmatter):
         """Extract tags from the YAML front matter."""
-        tags = []
+        stripped_tags = []
         if 'tags' in frontmatter:
-            tags = [tag.lstrip('#') for tag in frontmatter['tags']]  # Remove leading '#' if present
-        return tags
+            tags=frontmatter['tags']
+            if tags is not None:        
+                stripped_tags = [tag.lstrip('#') for tag in frontmatter['tags']]  # Remove leading '#' if present
+        return stripped_tags
 
     def html_text(self, filename):
+        # self.em.log(f"Filename: {filename.decode('utf-8')}")
         # Read the file content
         with open(filename, 'rb') as file:
             content = file.read()
-
+        # self.em.log(f"Content:\n{content}")
         # Convert content to string (assuming UTF-8 encoding)
         text_content = content.decode('utf-8')
 
@@ -67,6 +70,7 @@ class MDhandler(RclBaseHandler):
         output = _htmlprefix
 
         # Add meta tags for each extracted tag (using MDT as the prefix)
+        # self.em.log(f"TAGS: {tags}")
         for tag in tags:
             output += b'<meta name="tags" content="' + \
                       rclexecm.htmlescape(rclexecm.makebytes(tag)) + b'">\n'
