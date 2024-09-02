@@ -96,8 +96,8 @@ export default class RecollSearch extends Plugin {
         }); // Called when an unhandled exception occurs
 	}
 
-	onunload() {
-        stopRecollIndex();
+	async onunload() {
+        await stopRecollIndex();
 	}
 
 	async loadSettings() {

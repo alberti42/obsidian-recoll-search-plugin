@@ -43,16 +43,12 @@ function waitForProcessToExit(pid: number, timeout = 1000): Promise<void> {
 }
 
 export function updateProcessLogging(debug: boolean) {
-    if(debug && recollindexProcess && !stderrListener) {
-        stderrListener = (data:unknown) => {
-            // recoll surprisingly uses stderr for printing ordinary logs
-            // thus, we redirect stderr to the ordinary console
-            console.log(`recollindex stderr:\n${data}`);
-        };
-        recollindexProcess.stderr.on('data',stderrListener)
-    } else {
+    if(debug && !stderrListener) {
+        plugin.settings.debug = debug;
+    } else if(!debug && stderrListener) {
         removeDataListener();
     }
+    runRecollIndex();
 }
 
 let stderrListener:((data:unknown)=>void) | null = null;
@@ -93,22 +89,29 @@ export async function runRecollIndex(): Promise<void> {
     const recollDataDir = plugin.localSettings.recollDataDir;
     const pathExtension = plugin.localSettings.pathExtensions.join(':');
 
-    // const existingPid = plugin.localSettings.PID;
-    // if (existingPid) {
-    //     try {
-    //         process.kill(existingPid, 'SIGTERM'); // Try to gracefully terminate the existing process
-    //         await waitForProcessToExit(existingPid,); // Wait until the process terminates
-    //         console.log(`Successfully terminated the existing recollindex process with PID ${existingPid}.`);
-    //     } catch (err) {
-    //         if(err instanceof Error) {
-    //             console.error(`Failed to terminate existing recollindex process: ${err.message}`);
-    //         } else {
-    //             console.error(`Failed to terminate existing recollindex process: ${err}`);
-    //         }
-    //     }
-    // }
+    const existingPid = plugin.localSettings.PID;
+    if (existingPid) {
+        try {
+            process.kill(existingPid, 'SIGTERM'); // Try to gracefully terminate the existing process
+            await waitForProcessToExit(existingPid,); // Wait until the process terminates
+            console.log(`Successfully terminated the existing recollindex process with PID: ${existingPid}.`);
+        } catch (err) {
+            if(err instanceof Error) {
+                console.error(`Failed to terminate existing recollindex process: ${err.message}`);
+            } else {
+                console.error(`Failed to terminate existing recollindex process: ${err}`);
+            }
+        }
+    }
     plugin.localSettings.PID = undefined;
 
+    let stdErrOption: null | 'pipe';
+    if(plugin.settings.debug) {
+        stdErrOption = 'pipe';
+    } else {
+        stdErrOption = null;
+    }
+    
     // Spawn the recollindex process as a daemon
     recollindexProcess = spawn(recollindex_cmd, ['-m', '-D', '-w0', '-x'], {
         env: {
@@ -118,7 +121,7 @@ export async function runRecollIndex(): Promise<void> {
             RECOLL_DATADIR: recollDataDir,  // Add the path to recoll's share folder
         },
         detached: true, // Allow the process to run independently of its parent
-        stdio: [null, null, 'pipe'], // Ignore stdin, but allow stderr for logging
+        stdio: [null, null, stdErrOption], // Ignore stdin, but allow stderr for logging
     });
 
     // Verify that the process is running before saving the PID
@@ -137,6 +140,7 @@ export async function runRecollIndex(): Promise<void> {
         }
     }, 1000); // Wait for 1 second to allow the process to start
 
+    // save the PID number
     plugin.saveSettings();
 
     if(plugin.settings.debug) {
@@ -166,7 +170,6 @@ export async function stopRecollIndex(): Promise<void> {
         recollindexProcess.kill('SIGTERM'); // Send SIGTERM to gracefully terminate the process
         recollindexProcess = null;
         plugin.localSettings.PID = undefined;
-        // await plugin.saveSettings();
         removeListeners();
     }
 }
