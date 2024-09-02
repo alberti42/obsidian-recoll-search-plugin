@@ -1,4 +1,3 @@
-
 /* eslint-disable @typescript-eslint/no-inferrable-types */
 
 // Import necessary Obsidian API components
@@ -56,7 +55,7 @@ export default class RecollSearch extends Plugin {
 
 	constructor(app: App, manifest: PluginManifest) {
 		super(app, manifest);
-        
+
         const adapter = this.app.vault.adapter;
         if (!(adapter instanceof FileSystemAdapter)) {
             throw new Error("The vault folder could not be determined.");
@@ -66,22 +65,27 @@ export default class RecollSearch extends Plugin {
             monkeyPatchConsole(this);
             console.log("Recoll Search: development mode including extra logging and debug features");
         }
-
+        
         setPluginReference(this);
 
-		this.settingsTab = new RecollSearchSettingTab(this.app, this);
+		this.settingsTab = new RecollSearchSettingTab(this.app, this);        
 	}
 
 	// Load plugin settings
 	async onload() {
+        console.log("DATA!!");
+
 		// Load and add settings tab
 		await this.loadSettings();
 		this.addSettingTab(this.settingsTab);
+        console.log(this.settings);
+        console.log("DATA!!");
 
 		// console.log('Loaded plugin Recoll Search');
 
         this.app.workspace.onLayoutReady(() => {
-            runRecollIndex();
+            const firstStart = true;
+            runRecollIndex(firstStart);
         });
 
         this.registerEvents();
@@ -127,13 +131,21 @@ export default class RecollSearch extends Plugin {
     }
 
 	async loadSettings() {
-    	this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
         this.localSettings = Object.assign({}, DEFAULT_LOCAL_SETTINGS, this.settings.localSettings[getMACAddress()]);
 	}
 
     async saveSettings() {
         this.settings.localSettings[getMACAddress()] = this.localSettings;
-        await this.saveData(this.settings);
+        try {
+            await this.saveData(this.settings);
+        } catch(error) {
+            if(error instanceof Error && 'msg' in error) {
+                console.error("Could not save the settings:",error.msg)    
+            } else {
+                console.error("Could not save the settings:",error)    
+            }
+        }
     }
 }
 
@@ -428,7 +440,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
                 .setIcon("reset")
                 .setTooltip("Reset to default value")
                 .onClick(() => {
-                    const value = DEFAULT_SETTINGS.debug;
+                    const value = DEFAULT_SETTINGS.debug;                    
                     debug_toggle.setValue(value);
                     updateProcessLogging(value);
                 });

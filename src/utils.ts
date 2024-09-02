@@ -4,21 +4,47 @@ import { ParsedPath } from "types";
 import { promises as fs } from 'fs';
 import {networkInterfaces, hostname } from "os";
 
+
+// https://github.com/bevry/getmac/blob/master/source/index.ts
+// I could not install it from npm. Decided to copy&paste the code here directly.
+function getMAC(iface?: string): string {
+    const zeroRegex = /(?:[0]{1,2}[:-]){5}[0]{1,2}/
+    const list = networkInterfaces()
+    if (iface) {
+        const parts = list[iface]
+        if (!parts) {
+            throw new Error(`interface ${iface} was not found`)
+        }
+        for (const part of parts) {
+            if (zeroRegex.test(part.mac) === false) {
+                return part.mac
+            }
+        }
+        throw new Error(`interface ${iface} had no valid mac addresses`)
+    } else {
+        for (const [key, parts] of Object.entries(list)) {
+            // for some reason beyond me, this is needed to satisfy typescript
+            // fix https://github.com/bevry/getmac/issues/100
+            if (!parts) continue
+            for (const part of parts) {
+                if (zeroRegex.test(part.mac) === false) {
+                    return part.mac
+                }
+            }
+        }
+    }
+    throw new Error('failed to get the MAC address')
+}
+
 export function getHostname():string {
     return hostname();
 }
 
+let macAddress:string|undefined = undefined;
 export function getMACAddress(): string {
-    const nets = networkInterfaces();
-    for (const name of Object.keys(nets)) {
-        for (const net of nets[name]!) {
-            // Skip over non-IPv4 and internal (i.e., 127.0.0.1) addresses
-            if (net.family === "IPv4" && !net.internal) {
-                return net.mac; // Return the MAC address
-            }
-        }
-    }
-    return "00:00:00:00:00:00"; // Fallback MAC address
+    if(macAddress) return macAddress;
+    macAddress = getMAC();
+    return macAddress;
 }
 
 // Joins multiple path segments into a single normalized path.
@@ -59,4 +85,8 @@ export async function doesDirectoryExists(filePath: string): Promise<boolean> {
         }
         throw error; // Re-throw the error if it's not related to the existence check
     }
+}
+
+export function delay(ms: number) {
+    return new Promise( resolve => setTimeout(resolve, ms) );
 }
