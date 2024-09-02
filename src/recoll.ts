@@ -12,6 +12,14 @@ export function setPluginReference(p:RecollSearch) {
     plugin = p;
 }
 
+export function isRecollindexRunning(): boolean {
+    if (recollindexProcess && recollindexProcess.pid && isProcessRunning(recollindexProcess.pid)) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
 function isProcessRunning(pid: number): boolean {
     try {
         process.kill(pid, 0); // Send signal 0 to check if the process is running
@@ -89,20 +97,20 @@ export async function runRecollIndex(): Promise<void> {
     const recollDataDir = plugin.localSettings.recollDataDir;
     const pathExtension = plugin.localSettings.pathExtensions.join(':');
 
-    const existingPid = plugin.localSettings.PID;
-    if (existingPid) {
-        try {
-            process.kill(existingPid, 'SIGTERM'); // Try to gracefully terminate the existing process
-            await waitForProcessToExit(existingPid,); // Wait until the process terminates
-            console.log(`Successfully terminated the existing recollindex process with PID: ${existingPid}.`);
-        } catch (err) {
-            if(err instanceof Error) {
-                console.error(`Failed to terminate existing recollindex process: ${err.message}`);
-            } else {
-                console.error(`Failed to terminate existing recollindex process: ${err}`);
-            }
-        }
-    }
+    // const existingPid = plugin.localSettings.PID;
+    // if (existingPid) {
+    //     try {
+    //         process.kill(existingPid, 'SIGTERM'); // Try to gracefully terminate the existing process
+    //         await waitForProcessToExit(existingPid,); // Wait until the process terminates
+    //         console.log(`Successfully terminated the existing recollindex process with PID: ${existingPid}.`);
+    //     } catch (err) {
+    //         if(err instanceof Error) {
+    //             console.error(`Failed to terminate existing recollindex process: ${err.message}`);
+    //         } else {
+    //             console.error(`Failed to terminate existing recollindex process: ${err}`);
+    //         }
+    //     }
+    // }
     plugin.localSettings.PID = undefined;
 
     let stdErrOption: null | 'pipe';

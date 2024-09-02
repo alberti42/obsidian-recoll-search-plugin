@@ -26,7 +26,7 @@ import { RecollSearchLocalSettings, RecollSearchSettings as RecollSearchSettings
 
 import { monkeyPatchConsole, unpatchConsole } from "patchConsole";
 
-import { runRecollIndex, setPluginReference, stopRecollIndex, updateProcessLogging } from "recoll";
+import { isRecollindexRunning, runRecollIndex, setPluginReference, stopRecollIndex, updateProcessLogging } from "recoll";
 import { doesDirectoryExists, doesFileExists, getMACAddress, joinPaths, parseFilePath } from "utils";
 import { getMaxListeners } from "process";
 
@@ -128,6 +128,21 @@ class RecollSearchSettingTab extends PluginSettingTab {
         const MACAddress = getMACAddress();
 
 		containerEl.empty();
+
+        new Setting(containerEl).setName('Recoll status').setHeading();
+
+        const recollindex_status = isRecollindexRunning();
+        const status_label = recollindex_status ? "running" : "not running"
+
+        const status_setting = new Setting(containerEl)
+            .setName(createFragment((frag:DocumentFragment) => {
+                frag.appendText('Status of recollindex daemon service: ');
+                const status_span = createSpan({
+                    text: status_label, 
+                    cls: recollindex_status ? 'mod-success' : 'mod-warning'
+                });
+                frag.appendChild(status_span);
+            }));                
 
         new Setting(containerEl).setName('Recoll environment paths').setHeading();
 
