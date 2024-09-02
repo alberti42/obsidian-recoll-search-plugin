@@ -75,24 +75,26 @@ export default class RecollSearch extends Plugin {
 
 		// console.log('Loaded plugin Recoll Search');
 
-        runRecollIndex();
-
         this.app.workspace.onLayoutReady(() => {
+            runRecollIndex();
         });
 
         // Registering the shutdown hooks
-        process.on('exit', async () => {
-            await stopRecollIndex(); // Called when the Node.js process exits normally
+        process.on('exit', () => {
+            console.log("EXIT")
+            stopRecollIndex(); // Called when the Node.js process exits normally
         });
-        process.on('SIGINT', async () => {
-            await stopRecollIndex();
+        process.on('SIGINT', () => {
+            console.log("SIGINT")
+            stopRecollIndex();
         }); // Called when Ctrl+C is pressed
-        process.on('SIGTERM', async () => {
-            await stopRecollIndex();
+        process.on('SIGTERM', () => {
+            console.log("SIGTERM")
+            stopRecollIndex();
         }); // Called when a termination request is sent to the process
-        process.on('uncaughtException', async (err) => {
+        process.on('uncaughtException', (err) => {
             console.error(`Uncaught exception: ${err.message}`);
-            await stopRecollIndex();
+            stopRecollIndex();
         }); // Called when an unhandled exception occurs
 	}
 

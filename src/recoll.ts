@@ -3,6 +3,7 @@
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import * as fs from 'fs';
 import RecollSearch from 'main';
+import { Notice } from 'obsidian';
 import { removeListener } from 'process';
 
 let recollindexProcess: ChildProcessWithoutNullStreams | null = null;
@@ -64,20 +65,28 @@ function removeDataListener() {
     }
 }
 
-export function removeListeners():void {
-    removeDataListener();
+function removeErrorListener() {
     if(errorListener) {
         if(recollindexProcess){
             recollindexProcess.off('error',errorListener);
         }
         errorListener = null; // Clear the reference
     }
+}
+
+function removeCloseListener() {
     if(closeListener) {
         if(recollindexProcess){
             recollindexProcess.off('close',closeListener);
         }
         closeListener = null; // Clear the reference
     }
+}
+
+export function removeListeners():void {
+    removeDataListener();
+    removeErrorListener();
+    removeCloseListener();
 }
 
 export async function runRecollIndex(): Promise<void> {
@@ -133,7 +142,8 @@ export async function runRecollIndex(): Promise<void> {
             // Preserve the PID of the process
             console.log(`recollindex process started with PID: ${recollindexProcess.pid}`);
         } else {
-            console.error('recollindex process failed to start or is not running.');
+            console.error('recollindex process failed to start');
+            new Notice('recollindex process failed to start')
             recollindexProcess = null;
             plugin.localSettings.PID = undefined;
             plugin.saveSettings();
@@ -165,7 +175,7 @@ export async function runRecollIndex(): Promise<void> {
 }
 
 // Call this function when the plugin is unloaded
-export async function stopRecollIndex(): Promise<void> {
+export function stopRecollIndex(): void {
     if (recollindexProcess) {
         recollindexProcess.kill('SIGTERM'); // Send SIGTERM to gracefully terminate the process
         recollindexProcess = null;
