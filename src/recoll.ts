@@ -93,20 +93,20 @@ export async function runRecollIndex(): Promise<void> {
     const recollDataDir = plugin.localSettings.recollDataDir;
     const pathExtension = plugin.localSettings.pathExtensions.join(':');
 
-    const existingPid = plugin.localSettings.PID;
-    if (existingPid) {
-        try {
-            process.kill(existingPid, 'SIGTERM'); // Try to gracefully terminate the existing process
-            await waitForProcessToExit(existingPid,); // Wait until the process terminates
-            console.log(`Successfully terminated the existing recollindex process with PID ${existingPid}.`);
-        } catch (err) {
-            if(err instanceof Error) {
-                // console.error(`Failed to terminate existing recollindex process: ${err.message}`);
-            } else {
-                // console.error(`Failed to terminate existing recollindex process: ${err}`);
-            }
-        }
-    }
+    // const existingPid = plugin.localSettings.PID;
+    // if (existingPid) {
+    //     try {
+    //         process.kill(existingPid, 'SIGTERM'); // Try to gracefully terminate the existing process
+    //         await waitForProcessToExit(existingPid,); // Wait until the process terminates
+    //         console.log(`Successfully terminated the existing recollindex process with PID ${existingPid}.`);
+    //     } catch (err) {
+    //         if(err instanceof Error) {
+    //             console.error(`Failed to terminate existing recollindex process: ${err.message}`);
+    //         } else {
+    //             console.error(`Failed to terminate existing recollindex process: ${err}`);
+    //         }
+    //     }
+    // }
     plugin.localSettings.PID = undefined;
 
     // Spawn the recollindex process as a daemon
@@ -127,7 +127,7 @@ export async function runRecollIndex(): Promise<void> {
     }
     setTimeout(() => {
         if (recollindexProcess && plugin.localSettings.PID && isProcessRunning(plugin.localSettings.PID)) {
-            // Preserve the PID of the process to a file
+            // Preserve the PID of the process
             console.log(`recollindex process started with PID: ${recollindexProcess.pid}`);
         } else {
             console.error('recollindex process failed to start or is not running.');
