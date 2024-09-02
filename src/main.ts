@@ -48,7 +48,12 @@ export default class RecollSearch extends Plugin {
     private createEventRef: EventRef|null = null;
     private modifyEventRef: EventRef|null = null;
     private deleteEventRef: EventRef|null = null;
-    
+
+    private exitListener: NodeJS.ExitListener | null = null;
+    private sigintListener: ((...args: any[]) => void) | null = null;
+    private sigtermListener: ((...args: any[]) => void) | null = null;
+    private uncaughtExceptionListener: NodeJS.UncaughtExceptionListener | null = null;
+
 	constructor(app: App, manifest: PluginManifest) {
 		super(app, manifest);
         
@@ -79,28 +84,47 @@ export default class RecollSearch extends Plugin {
             runRecollIndex();
         });
 
-        // Registering the shutdown hooks
-        process.on('exit', () => {
-            console.log("EXIT")
-            stopRecollIndex(); // Called when the Node.js process exits normally
-        });
-        process.on('SIGINT', () => {
-            console.log("SIGINT")
-            stopRecollIndex();
-        }); // Called when Ctrl+C is pressed
-        process.on('SIGTERM', () => {
-            console.log("SIGTERM")
-            stopRecollIndex();
-        }); // Called when a termination request is sent to the process
-        process.on('uncaughtException', (err) => {
-            console.error(`Uncaught exception: ${err.message}`);
-            stopRecollIndex();
-        }); // Called when an unhandled exception occurs
+        this.registerEvents();
 	}
 
-	async onunload() {
-        await stopRecollIndex();
+	onunload() {
+        stopRecollIndex();
+        this.unregisterEvents();
 	}
+
+    onquit() {
+        stopRecollIndex();
+    }
+
+    registerEvents() {
+        // Registering the shutdown hooks
+        this.exitListener = () => {
+            stopRecollIndex(); // Called when the Node.js process exits normally
+        };
+        this.sigintListener = () => {
+            stopRecollIndex();
+        }; // Called when Ctrl+C is pressed
+        this.sigtermListener = () => {
+            stopRecollIndex();
+        }; // Called when a termination request is sent to the process
+        this.uncaughtExceptionListener = (err: Error) => {
+            console.error(`Uncaught exception: ${err.message}`);
+            stopRecollIndex();
+        }; // Called when an unhandled exception occurs
+
+        process.on('exit', this.exitListener);
+        process.on('SIGINT', this.sigintListener);
+        process.on('SIGTERM', this.sigtermListener);
+        process.on('uncaughtException', this.uncaughtExceptionListener);
+    }
+
+    unregisterEvents() {
+        // Remove event listeners
+        if(this.exitListener) process.off('exit', this.exitListener);
+        if(this.sigintListener) process.off('SIGINT', this.sigintListener);
+        if(this.sigtermListener) process.off('SIGTERM', this.sigtermListener);
+        if(this.uncaughtExceptionListener) process.off('uncaughtException', this.uncaughtExceptionListener);
+    }
 
 	async loadSettings() {
     	this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
