@@ -3,6 +3,7 @@
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import * as fs from 'fs';
 import RecollSearch from 'main';
+import { removeListener } from 'process';
 
 let recollindexProcess: ChildProcessWithoutNullStreams | null = null;
 let plugin:RecollSearch;
@@ -41,6 +42,48 @@ function waitForProcessToExit(pid: number, timeout = 1000): Promise<void> {
     });
 }
 
+export function updateProcessLogging(debug: boolean) {
+    if(debug && recollindexProcess && !stderrListener) {
+        stderrListener = (data:unknown) => {
+            // recoll surprisingly uses stderr for printing ordinary logs
+            // thus, we redirect stderr to the ordinary console
+            console.log(`recollindex stderr:\n${data}`);
+        };
+        recollindexProcess.stderr.on('data',stderrListener)
+    } else {
+        removeDataListener();
+    }
+}
+
+let stderrListener:((data:unknown)=>void) | null = null;
+let errorListener:((error:Error)=>void) | null = null;
+let closeListener:((code: number | null, signal: NodeJS.Signals | null)=>void) | null = null;
+
+function removeDataListener() {
+    if(stderrListener) {
+        if(recollindexProcess){
+            recollindexProcess.stderr.off('data', stderrListener);    
+        }
+        stderrListener = null; // Clear the reference
+    }
+}
+
+export function removeListeners():void {
+    removeDataListener();
+    if(errorListener) {
+        if(recollindexProcess){
+            recollindexProcess.off('error',errorListener);
+        }
+        errorListener = null; // Clear the reference
+    }
+    if(closeListener) {
+        if(recollindexProcess){
+            recollindexProcess.off('close',closeListener);
+        }
+        closeListener = null; // Clear the reference
+    }
+}
+
 export async function runRecollIndex(): Promise<void> {
     const recollindex_cmd = plugin.localSettings.recollindexCmd;
 
@@ -50,20 +93,20 @@ export async function runRecollIndex(): Promise<void> {
     const recollDataDir = plugin.localSettings.recollDataDir;
     const pathExtension = plugin.localSettings.pathExtensions.join(':');
 
-    // const existingPid = plugin.localSettings.PID;
-    // if (existingPid) {
-    //     try {
-    //         process.kill(existingPid, 'SIGTERM'); // Try to gracefully terminate the existing process
-    //         await waitForProcessToExit(existingPid,); // Wait until the process terminates
-    //         console.log(`Successfully terminated the existing recollindex process with PID ${existingPid}.`);
-    //     } catch (err) {
-    //         if(err instanceof Error) {
-    //             console.error(`Failed to terminate existing recollindex process: ${err.message}`);
-    //         } else {
-    //             console.error(`Failed to terminate existing recollindex process: ${err}`);
-    //         }
-    //     }
-    // }
+    const existingPid = plugin.localSettings.PID;
+    if (existingPid) {
+        try {
+            process.kill(existingPid, 'SIGTERM'); // Try to gracefully terminate the existing process
+            await waitForProcessToExit(existingPid,); // Wait until the process terminates
+            console.log(`Successfully terminated the existing recollindex process with PID ${existingPid}.`);
+        } catch (err) {
+            if(err instanceof Error) {
+                // console.error(`Failed to terminate existing recollindex process: ${err.message}`);
+            } else {
+                // console.error(`Failed to terminate existing recollindex process: ${err}`);
+            }
+        }
+    }
     plugin.localSettings.PID = undefined;
 
     // Spawn the recollindex process as a daemon
@@ -96,21 +139,25 @@ export async function runRecollIndex(): Promise<void> {
 
     plugin.saveSettings();
 
-    recollindexProcess.stderr.on('data', (data) => {
-        // recoll surprisingly uses stderr for printing ordinary logs
-        // thus, we redirect stderr to the ordinary console
-        console.log(`recollindex stderr: ${data}`);
-    });
-
-    recollindexProcess.on('error', (error) => {
+    if(plugin.settings.debug) {
+        stderrListener = (data:unknown) => {
+            // recoll surprisingly uses stderr for printing ordinary logs
+            // thus, we redirect stderr to the ordinary console
+            console.log(`recollindex stderr:\n${data}`);
+        };
+        recollindexProcess.stderr.on('data',stderrListener)
+    };
+    errorListener =  (error:Error) => {
         console.error(`Error running recollindex:\n${error.message}`);
-    });
+    };
+    recollindexProcess.on('error', errorListener);
 
-    recollindexProcess.on('close', (code) => {
+    closeListener = (code) => {
         console.log(`recollindex process exited with code ${code}`);
         recollindexProcess = null;
         plugin.localSettings.PID = undefined;
-    });
+    };
+    recollindexProcess.on('close', closeListener);
 }
 
 // Call this function when the plugin is unloaded
@@ -120,5 +167,6 @@ export async function stopRecollIndex(): Promise<void> {
         recollindexProcess = null;
         plugin.localSettings.PID = undefined;
         // await plugin.saveSettings();
+        removeListeners();
     }
 }

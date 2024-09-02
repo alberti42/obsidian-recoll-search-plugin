@@ -26,7 +26,7 @@ import { RecollSearchLocalSettings, RecollSearchSettings as RecollSearchSettings
 
 import { monkeyPatchConsole, unpatchConsole } from "patchConsole";
 
-import { runRecollIndex, setPluginReference, stopRecollIndex } from "recoll";
+import { runRecollIndex, setPluginReference, stopRecollIndex, updateProcessLogging } from "recoll";
 import { doesDirectoryExists, doesFileExists, getMACAddress, joinPaths, parseFilePath } from "utils";
 import { getMaxListeners } from "process";
 
@@ -378,6 +378,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
             .onChange(async (value: boolean) => {
                 this.plugin.settings.debug = value;
                 this.plugin.saveSettings();
+                updateProcessLogging(value);
             })
         });
 
@@ -388,6 +389,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
                 .onClick(() => {
                     const value = DEFAULT_SETTINGS.debug;
                     debug_toggle.setValue(value);
+                    updateProcessLogging(value);
                 });
         });
 	}
