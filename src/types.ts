@@ -15,6 +15,7 @@ export interface RecollSearchLocalSettings {
     recollDataDir: string;
     pathExtensions: string[];
     recollindexCmd: string;
+    PID: number | undefined; // PID of the current process
 }
 
 export interface ParsedPath {

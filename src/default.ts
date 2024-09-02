@@ -16,4 +16,5 @@ export const DEFAULT_LOCAL_SETTINGS: RecollSearchLocalSettings = {
     recollDataDir: '',
     pathExtensions: [''],
     recollindexCmd: '',
+    PID: undefined,
 }
