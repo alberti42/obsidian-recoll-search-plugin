@@ -1,3 +1,4 @@
+
 /* eslint-disable @typescript-eslint/no-inferrable-types */
 
 // Import necessary Obsidian API components
@@ -25,7 +26,7 @@ import { RecollSearchLocalSettings, RecollSearchSettings as RecollSearchSettings
 
 import { monkeyPatchConsole, unpatchConsole } from "patchConsole";
 
-import { runRecollIndex, runRecollIndexDebounced, setDebouncingTime, setPluginReference } from "recoll";
+import { runRecollIndex, setPluginReference, stopRecollIndex } from "recoll";
 import { doesDirectoryExists, doesFileExists, getMACAddress, joinPaths, parseFilePath } from "utils";
 import { getMaxListeners } from "process";
 
@@ -74,68 +75,37 @@ export default class RecollSearch extends Plugin {
 
 		// console.log('Loaded plugin Recoll Search');
 
-        this.registerEvents();
+        runRecollIndex();
 
         this.app.workspace.onLayoutReady(() => {
         });
+
+        // Registering the shutdown hooks
+        process.on('exit', stopRecollIndex); // Called when the Node.js process exits normally
+        process.on('SIGINT', () => {
+            stopRecollIndex();
+        }); // Called when Ctrl+C is pressed
+        process.on('SIGTERM', () => {
+            stopRecollIndex();
+        }); // Called when a termination request is sent to the process
+        process.on('uncaughtException', (err) => {
+            console.error(`Uncaught exception: ${err.message}`);
+            stopRecollIndex();
+        }); // Called when an unhandled exception occurs
 	}
 
-    private registerEvents() {
-        this.createEventRef = this.app.vault.on('create', runRecollIndexDebounced);
-        this.modifyEventRef = this.app.vault.on('modify', runRecollIndexDebounced);
-        this.deleteEventRef = this.app.vault.on('delete', runRecollIndexDebounced);
-
-        this.registerEvent(this.createEventRef);
-        this.registerEvent(this.modifyEventRef);
-        this.registerEvent(this.deleteEventRef);  
-    }
-
-    private unregisterEvents() {
-        if(this.createEventRef) {
-            this.app.vault.offref(this.createEventRef);
-            this.createEventRef = null;
-        }
-        if(this.modifyEventRef) {
-            this.app.vault.offref(this.modifyEventRef);
-            this.modifyEventRef = null;
-        }
-        if(this.deleteEventRef) {
-            this.app.vault.offref(this.deleteEventRef);
-            this.deleteEventRef = null;
-        }
-    }
-
 	onunload() {
-        this.unregisterEvents();
+        stopRecollIndex();
 	}
 
 	async loadSettings() {
     	this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
         this.localSettings = Object.assign({}, DEFAULT_LOCAL_SETTINGS, this.settings.localSettings[getMACAddress()]);
-        setDebouncingTime(this.settings.debouncingTime);
 	}
 
     async saveSettings() {
         this.settings.localSettings[getMACAddress()] = this.localSettings;
         await this.saveData(this.settings);
-    }
-
-    // Event handler for file creation
-    private onFileCreate(file: TAbstractFile): void {
-        if(this.settings.debug) console.log(`File created: ${file.path}`);
-        runRecollIndexDebounced();
-    }
-
-    // Event handler for file modification
-    private onFileModify(file: TAbstractFile): void {
-        if(this.settings.debug) console.log(`File modified: ${file.path}`);
-        runRecollIndexDebounced();
-    }
-
-    // Event handler for file deletion
-    private onFileDelete(file: TAbstractFile): void {
-        if(this.settings.debug) console.log(`File deleted: ${file.path}`);
-        runRecollIndexDebounced();
     }
 }
 
@@ -346,53 +316,52 @@ class RecollSearchSettingTab extends PluginSettingTab {
         });
 
         new Setting(containerEl).setName('Indexing').setHeading();
-        let debouncing_time_warningEl:HTMLElement;
-        const debouncing_time_setting = new Setting(containerEl)
-            .setName('Debouncing time for recollindex')
-            .setDesc('A delay in milliseconds to be waited after any change to the vault before recollindex is executed.');                
+
+        // let debouncing_time_warningEl:HTMLElement;
+        // const debouncing_time_setting = new Setting(containerEl)
+        //     .setName('Debouncing time for recollindex')
+        //     .setDesc('A delay in milliseconds to be waited after any change to the vault before recollindex is executed.');                
         
-        let debouncing_time_text:TextComponent;
-        debouncing_time_setting.addText(text => {
-                debouncing_time_text = text;
-                const debouncing_time_warningEl = containerEl.createDiv({ cls: 'mod-warning' });
-                debouncing_time_warningEl.style.display = 'none';  // Initially hide the warning
-                return text
-                    .setPlaceholder('Delay in milliseconds')
-                    .setValue(`${this.plugin.settings.debouncingTime}`)
-                    .onChange(async (value) => {
-                        // Remove any previous warning text
-                        debouncing_time_warningEl.textContent = '';
+        // let debouncing_time_text:TextComponent;
+        // debouncing_time_setting.addText(text => {
+        //         debouncing_time_text = text;
+        //         const debouncing_time_warningEl = containerEl.createDiv({ cls: 'mod-warning' });
+        //         debouncing_time_warningEl.style.display = 'none';  // Initially hide the warning
+        //         return text
+        //             .setPlaceholder('Delay in milliseconds')
+        //             .setValue(`${this.plugin.settings.debouncingTime}`)
+        //             .onChange(async (value) => {
+        //                 // Remove any previous warning text
+        //                 debouncing_time_warningEl.textContent = '';
 
-                        // Try to parse the input as an integer
-                        const parsedValue = parseInt(value, 10);
+        //                 // Try to parse the input as an integer
+        //                 const parsedValue = parseInt(value, 10);
 
-                        // Check if the value is a valid number and greater than or equal to 0
-                        if (isNaN(parsedValue) || parsedValue < 0) {
-                            // Show warning if the input is invalid
-                            debouncing_time_warningEl.textContent = 'Please enter a valid number for the delay.';
-                            debouncing_time_warningEl.style.display = 'block';
-                        } else {
-                            // Hide the warning and save the valid value
-                            debouncing_time_warningEl.style.display = 'none';
-                            this.plugin.settings.debouncingTime = parsedValue;
-                            this.plugin.saveSettings();
-                            setDebouncingTime(parsedValue);
-                        }
-                    });
-            });
+        //                 // Check if the value is a valid number and greater than or equal to 0
+        //                 if (isNaN(parsedValue) || parsedValue < 0) {
+        //                     // Show warning if the input is invalid
+        //                     debouncing_time_warningEl.textContent = 'Please enter a valid number for the delay.';
+        //                     debouncing_time_warningEl.style.display = 'block';
+        //                 } else {
+        //                     // Hide the warning and save the valid value
+        //                     debouncing_time_warningEl.style.display = 'none';
+        //                     this.plugin.settings.debouncingTime = parsedValue;
+        //                     this.plugin.saveSettings();                            
+        //                 }
+        //             });
+        //     });
 
-        debouncing_time_setting.addExtraButton((button) => {
-            button
-                .setIcon("reset")
-                .setTooltip("Reset to default value")
-                .onClick(() => {
-                    const value = DEFAULT_SETTINGS.debouncingTime;
-                    debouncing_time_text.setValue(`${value}`);
-                    this.plugin.settings.debouncingTime = value;
-                    this.plugin.saveSettings();
-                    setDebouncingTime(value);
-                });
-        });
+        // debouncing_time_setting.addExtraButton((button) => {
+        //     button
+        //         .setIcon("reset")
+        //         .setTooltip("Reset to default value")
+        //         .onClick(() => {
+        //             const value = DEFAULT_SETTINGS.debouncingTime;
+        //             debouncing_time_text.setValue(`${value}`);
+        //             this.plugin.settings.debouncingTime = value;
+        //             this.plugin.saveSettings();
+        //         });
+        // });
 
 
         const debug_setting = new Setting(containerEl)
