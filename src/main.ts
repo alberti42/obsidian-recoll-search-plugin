@@ -427,7 +427,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
 
         const debug_setting = new Setting(containerEl)
             .setName('Show debug infos')
-            .setDesc('If this option is enabled, debug infos are shown in the development console.');
+            .setDesc('If this option is enabled, debug infos are shown in the development console. Note that toggling this option will restart recollindex.');
 
         let debug_toggle: ToggleComponent;
         debug_setting.addToggle(toggle => {

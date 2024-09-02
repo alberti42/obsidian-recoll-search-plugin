@@ -237,7 +237,6 @@ export async function runRecollIndex(firstRun:boolean = false): Promise<void> {
             recollindexProcess.stderr.on('data',stderrListener)
         };
         errorListener =  (error:Error) => {
-            console.log("STOPPPPPPPPPPQQQQQ");
             new Notice(`Error running recollindex:\n${error.message}`);
             console.error(`Error running recollindex:\n${error.message}`);
         };
@@ -263,7 +262,6 @@ We now pause for ${Math.round(pause/1000)}s and then proceed with attempt ${numE
 
     // We wait for 30 seconds. If no error is detected, we reset `numExecAttemptsMade`
     successTimer = setTimeout(()=>{
-        console.log("WE ARE GOOD");
         numExecAttemptsMade = 0;
     }, 30*1000);
 }
