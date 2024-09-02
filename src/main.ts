@@ -25,7 +25,7 @@ import { RecollSearchLocalSettings, RecollSearchSettings as RecollSearchSettings
 
 import { monkeyPatchConsole, unpatchConsole } from "patchConsole";
 
-import { isRecollindexRunning, runRecollIndex, setPluginReference, stopRecollIndex, updateProcessLogging } from "recoll";
+import { isRecollindexRunning, restartRecollIndex, runRecollIndex, setPluginReference, stopRecollIndex, updateProcessLogging } from "recoll";
 import { doesDirectoryExists, doesFileExists, getMACAddress, joinPaths, parseFilePath } from "utils";
 import { getMaxListeners } from "process";
 
@@ -90,7 +90,7 @@ export default class RecollSearch extends Plugin {
             name: 'Gracefully restart recollindex',
             callback: async () => {
                 const firstStart = false;
-                runRecollIndex(firstStart);
+                restartRecollIndex();
             }
         });
 

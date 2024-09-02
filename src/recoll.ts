@@ -24,7 +24,6 @@ let recollindexProcess: ChildProcessWithoutNullStreams | null = null;
 let plugin:RecollSearch;
 let recollindex_PID:number|undefined = undefined;
 let numExecAttemptsMade:number = 0;
-let keepProcessAlive:boolean = true;
 const maxNumExecAttemptsMade:number = 3;
 let successTimer:ReturnType<typeof setTimeout>;
 
@@ -49,7 +48,6 @@ function isProcessRunning(pid: number): boolean {
     }
 }
 
-
 function waitForProcessToExit(pid: number, timeout = 1000): Promise<void> {
     return new Promise((resolve, reject) => {
         const start = Date.now();
@@ -72,7 +70,7 @@ function waitForProcessToExit(pid: number, timeout = 1000): Promise<void> {
 
 export function updateProcessLogging(debug: boolean) {
     plugin.settings.debug = debug;
-    runRecollIndex();
+    restartRecollIndex();
 }
 
 let stderrListener:((data:unknown)=>void) | null = null;
@@ -112,6 +110,78 @@ export function removeListeners():void {
     removeCloseListener();
 }
 
+async function saveProcessTermination(PID:number): Promise<void> {
+    try {
+        // Try to gracefully terminate the existing process
+        process.kill(PID, 'SIGTERM');
+    } catch(error) {
+        if(error instanceof Error && 'code' in error && error.code === "ESRCH") {
+            // nothing to be done, the process was already
+            // dead and we did not need to terminate it
+
+        } else { // something else is happening, propagate the error
+            throw error;    
+        }
+    }
+
+    // The process has received notification to quit,
+    // but it could take some time. Recollindex is
+    // configured to react within 1000 ms.
+    // To be safe, we take a timeout of 1100 ms.
+    // If it has not exited after this timeoutm, something
+    // went wrong. Then a kill command is in order.
+    try {
+        await waitForProcessToExit(PID,1100);
+        console.log(`Gracefully terminated the existing recollindex process with PID: ${PID}.`);
+    } catch(errorSigTerm) {
+        if(errorSigTerm instanceof TimeoutError) {
+            try {
+                // TIMEOUT: The process did not terminate before the
+                // timeout. We dare to kill the existing process. Otherwise,
+                // we cannot launch a new one. They are exclusive.
+                process.kill(PID, 'SIGKILL');
+            } catch(error) {
+                if(error instanceof Error && 'code' in error && error.code === "ESRCH") {
+                    // We did not need to terminate it. It was already dead.
+                    // The process just died before sending out the SIGKILL signal.
+                    // Nothing to be done,                            
+                } else { // something else is happening, propagate the error
+                    throw error;
+                }
+            }
+            // As we reached this point, we will use the kill signal
+            // to terminate the process. This is a strong command
+            // and it should always work.
+            // If the timeout is reached, something very bad
+            // is happening because the process does not even react 
+            // to kill commands.
+            try {
+                // Wait up to 1000 ms for the kill command to get into effect
+                await waitForProcessToExit(PID,1000);
+                console.log(`Killed the existing recollindex process with PID: ${PID}.`);
+            } catch(errorSigKil) {
+                if(errorSigKil instanceof TimeoutError) {
+                    // TIMEOUT: The process did not terminate before the
+                    // timeout despite the SIGKILL signal. We give up and return.
+                    console.error(`Failed to terminate existing recollindex process: ${errorSigKil.message}`)
+                    return;
+                } else { // errorSigKil is not instanceof TimeoutError
+                    console.error(`Failed to terminate existing recollindex process: ${errorSigKil}`);
+                    throw errorSigKil;
+                }
+            }
+        } else { 
+            throw errorSigTerm;
+        }
+    }
+}
+
+export async function restartRecollIndex(): Promise<void> {
+    await stopRecollIndex();
+    const firstRun=false;
+    runRecollIndex(firstRun);
+}
+
 export async function runRecollIndex(firstRun:boolean = false): Promise<void> {
     if(!firstRun) removeListeners();
 
@@ -126,70 +196,7 @@ export async function runRecollIndex(firstRun:boolean = false): Promise<void> {
     if(!firstRun) {
         if (recollindex_PID) {
             const existingPid = recollindex_PID;    
-            
-            try {
-                // Try to gracefully terminate the existing process
-                process.kill(existingPid, 'SIGTERM');
-            } catch(error) {
-                if(error instanceof Error && 'code' in error && error.code === "ESRCH") {
-                    // nothing to be done, the process was already
-                    // dead and we did not need to terminate it
-
-                } else { // something else is happening, propagate the error
-                    throw error;    
-                }
-            }
-
-            // The process has received notification to quit,
-            // but it could take some time. Recollindex is
-            // configured to react within 1000 ms.
-            // To be safe, we take a timeout of 1100 ms.
-            // If it has not exited after this timeoutm, something
-            // went wrong. Then a kill command is in order.
-            try {
-                await waitForProcessToExit(existingPid,1100);
-                console.log(`Gracefully terminated the existing recollindex process with PID: ${existingPid}.`);
-            } catch(errorSigTerm) {
-                if(errorSigTerm instanceof TimeoutError) {
-                    try {
-                        // TIMEOUT: The process did not terminate before the
-                        // timeout. We dare to kill the existing process. Otherwise,
-                        // we cannot launch a new one. They are exclusive.
-                        process.kill(existingPid, 'SIGKILL');
-                    } catch(error) {
-                        if(error instanceof Error && 'code' in error && error.code === "ESRCH") {
-                            // We did not need to terminate it. It was already dead.
-                            // The process just died before sending out the SIGKILL signal.
-                            // Nothing to be done,                            
-                        } else { // something else is happening, propagate the error
-                            throw error;
-                        }
-                    }
-                    // As we reached this point, we will use the kill signal
-                    // to terminate the process. This is a strong command
-                    // and it should always work.
-                    // If the timeout is reached, something very bad
-                    // is happening because the process does not even react 
-                    // to kill commands.
-                    try {
-                        // Wait up to 1000 ms for the kill command to get into effect
-                        await waitForProcessToExit(existingPid,1000);
-                        console.log(`Killed the existing recollindex process with PID: ${existingPid}.`);
-                    } catch(errorSigKil) {
-                        if(errorSigKil instanceof TimeoutError) {
-                            // TIMEOUT: The process did not terminate before the
-                            // timeout despite the SIGKILL signal. We give up and return.
-                            console.error(`Failed to terminate existing recollindex process: ${errorSigKil.message}`)
-                            return;
-                        } else { // errorSigKil is not instanceof TimeoutError
-                            console.error(`Failed to terminate existing recollindex process: ${errorSigKil}`);
-                            throw errorSigKil;
-                        }
-                    }
-                } else { 
-                    throw errorSigTerm;
-                }
-            }
+            saveProcessTermination(existingPid);
         }
     }
     
@@ -243,14 +250,14 @@ export async function runRecollIndex(firstRun:boolean = false): Promise<void> {
         recollindexProcess.on('error', errorListener);
 
         closeListener = async (code) => {
-            if(keepProcessAlive && numExecAttemptsMade < 3) { // an error occurred
-                const pause = 3000;
+            if(numExecAttemptsMade < 3) { // an error occurred
+                const pause = 5000;
                 numExecAttemptsMade++;
                 console.log(`recollindex process exited with code ${code}\n
 We now pause for ${Math.round(pause/1000)}s and then proceed with attempt ${numExecAttemptsMade}/${maxNumExecAttemptsMade} to restart recollindex`);
 
                 // add a delay and restart the process
-                await delay(300);
+                await delay(pause);
                 const firstRun = false;
                 runRecollIndex(firstRun);
             }          
@@ -258,6 +265,7 @@ We now pause for ${Math.round(pause/1000)}s and then proceed with attempt ${numE
         recollindexProcess.on('close', closeListener);
     
         recollindex_PID = recollindexProcess.pid;
+        console.log(`Successfully started the recollindex process with PID: ${recollindex_PID}.`)
     }
 
     // We wait for 30 seconds. If no error is detected, we reset `numExecAttemptsMade`
@@ -267,10 +275,15 @@ We now pause for ${Math.round(pause/1000)}s and then proceed with attempt ${numE
 }
 
 // Call this function when the plugin is unloaded
-export function stopRecollIndex(): void {
+export async function stopRecollIndex(): Promise<void> {
     if (recollindexProcess) {
+        // note: we first remove the listeners, so there will be no
+        // attempt from `closeListener` to keep the process alive
+        // then we can safely send the sigterm command
         removeListeners();
-        recollindexProcess.kill('SIGTERM'); // Send SIGTERM to gracefully terminate the process
+        if(recollindexProcess.pid) {
+            await saveProcessTermination(recollindexProcess.pid)
+        }
         recollindexProcess = null;
         recollindex_PID = undefined;
     }
