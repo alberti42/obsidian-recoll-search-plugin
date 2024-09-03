@@ -247,15 +247,15 @@ async function queuedRunRecollIndex(settings:Omit<RecollSearchSettings, 'localSe
                 const pause = 5000;
                 numExecAttemptsMade++;
                 console.log(`recollindex process exited with code ${code}\n
-We now pause for ${Math.round(pause/1000)}s and then proceed with attempt ${numExecAttemptsMade}/${maxNumExecAttemptsMade} to restart recollindex`);
+We now pause for ${Math.round(pause/1000)}s and then proceed with attempt ${numExecAttemptsMade}/${maxNumExecAttemptsMade} to restart recollindex.`);
 
                 // add a delay and restart the process
                 await delay(pause);
                 runRecollIndex();
             } else {
                 console.error(`recollindex process exited with code ${code}\n
-No further automatic attempt will be undertaken to restart recollindex. Switch to debug mode, start the process manually with\
-the command 'Gracefully restart recollindex', and check on the console what the cause of the problem is.`)
+No further automatic attempt will be undertaken to restart recollindex. If you did not do it already, switch to debug mode, start the process manually with\
+the command 'Gracefully restart recollindex', and check on the console the error message to find out what the cause of the problem is.`)
             }        
         };
         recollindexProcess.on('close', closeListener);
