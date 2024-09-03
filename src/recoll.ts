@@ -254,8 +254,9 @@ We now pause for ${Math.round(pause/1000)}s and then proceed with attempt ${numE
                 runRecollIndex();
             } else {
                 console.error(`recollindex process exited with code ${code}\n
-No further automatic attempt will be undertaken to restart recollindex. If you did not do it already, switch to debug mode, start the process manually with\
-the command 'Gracefully restart recollindex', and check on the console the error message to find out what the cause of the problem is.`)
+No further automatic attempts to restart recollindex will be made. \
+If you have not already done so, switch to debug mode, start the process manually with the command \
+'Gracefully restart recollindex', and check the error message on the console to find out what caused the problem.`)
             }        
         };
         recollindexProcess.on('close', closeListener);
