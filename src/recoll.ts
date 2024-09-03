@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import RecollSearch from 'main';
 import { Notice } from 'obsidian';
 import { removeListener } from 'process';
+import { RecollSearchLocalSettings, RecollSearchSettings } from 'types';
 import { delay } from 'utils';
 
 class TimeoutError extends Error {
@@ -20,12 +21,14 @@ class TimeoutError extends Error {
     }
 }
 
-let recollindexProcess: ChildProcessWithoutNullStreams | null = null;
+let recollindexProcess: ReturnType<typeof spawn> | null = null;
 let plugin:RecollSearch;
 let recollindex_PID:number|undefined = undefined;
 let numExecAttemptsMade:number = 0;
 const maxNumExecAttemptsMade:number = 3;
 let successTimer:ReturnType<typeof setTimeout>;
+let keepItAlive:boolean; // whether to attempt restarting recollindex in case it crashes
+let queue: Promise<void> = Promise.resolve(); // use to avoid running `runRecollIndex` multiple times in parallel; initialized to be a resolved promise
 
 export function setPluginReference(p:RecollSearch) {
     plugin = p;
@@ -70,7 +73,7 @@ function waitForProcessToExit(pid: number, timeout = 1000): Promise<void> {
 
 export function updateProcessLogging(debug: boolean) {
     plugin.settings.debug = debug;
-    restartRecollIndex();
+    runRecollIndex();
 }
 
 let stderrListener:((data:unknown)=>void) | null = null;
@@ -79,7 +82,7 @@ let closeListener:((code: number | null, signal: NodeJS.Signals | null)=>void) |
 
 function removeDataListener() {
     if(stderrListener) {
-        if(recollindexProcess){
+        if(recollindexProcess && recollindexProcess.stderr){
             recollindexProcess.stderr.off('data', stderrListener);    
         }
         stderrListener = null; // Clear the reference
@@ -110,10 +113,11 @@ export function removeListeners():void {
     removeCloseListener();
 }
 
-async function saveProcessTermination(PID:number): Promise<void> {
+async function safeProcessTermination(): Promise<void> {
+    if(!recollindex_PID) return;    
     try {
         // Try to gracefully terminate the existing process
-        process.kill(PID, 'SIGTERM');
+        process.kill(recollindex_PID, 'SIGTERM');
     } catch(error) {
         if(error instanceof Error && 'code' in error && error.code === "ESRCH") {
             // nothing to be done, the process was already
@@ -131,15 +135,15 @@ async function saveProcessTermination(PID:number): Promise<void> {
     // If it has not exited after this timeoutm, something
     // went wrong. Then a kill command is in order.
     try {
-        await waitForProcessToExit(PID,1100);
-        console.log(`Gracefully terminated the existing recollindex process with PID: ${PID}.`);
+        await waitForProcessToExit(recollindex_PID,1100);
+        console.log(`Gracefully terminated the existing recollindex process with PID: ${recollindex_PID}.`);
     } catch(errorSigTerm) {
         if(errorSigTerm instanceof TimeoutError) {
             try {
                 // TIMEOUT: The process did not terminate before the
                 // timeout. We dare to kill the existing process. Otherwise,
                 // we cannot launch a new one. They are exclusive.
-                process.kill(PID, 'SIGKILL');
+                process.kill(recollindex_PID, 'SIGKILL');
             } catch(error) {
                 if(error instanceof Error && 'code' in error && error.code === "ESRCH") {
                     // We did not need to terminate it. It was already dead.
@@ -157,8 +161,8 @@ async function saveProcessTermination(PID:number): Promise<void> {
             // to kill commands.
             try {
                 // Wait up to 1000 ms for the kill command to get into effect
-                await waitForProcessToExit(PID,1000);
-                console.log(`Killed the existing recollindex process with PID: ${PID}.`);
+                await waitForProcessToExit(recollindex_PID,1000);
+                console.log(`Killed the existing recollindex process with PID: ${recollindex_PID}.`);
             } catch(errorSigKil) {
                 if(errorSigKil instanceof TimeoutError) {
                     // TIMEOUT: The process did not terminate before the
@@ -174,43 +178,32 @@ async function saveProcessTermination(PID:number): Promise<void> {
             throw errorSigTerm;
         }
     }
+    // If we reach this point, it means there were no errors thrown
+    // and the process recollindex has been successfully terminated.
+    recollindex_PID = undefined
 }
+async function queuedRunRecollIndex(settings:Omit<RecollSearchSettings, 'localSettings'>,localSettings:RecollSearchLocalSettings) {
+    // Remove listeners if these were set
+    removeListeners();
 
-export async function restartRecollIndex(): Promise<void> {
-    await stopRecollIndex();
-    const firstRun=false;
-    runRecollIndex(firstRun);
-}
-
-export async function runRecollIndex(firstRun:boolean = false): Promise<void> {
-    if(!firstRun) removeListeners();
-
-    const recollindex_cmd = plugin.localSettings.recollindexCmd;
+    const recollindex_cmd = localSettings.recollindexCmd;
 
     if (recollindex_cmd === "") return;
 
-    const pythonPath = plugin.localSettings.pythonPath;
-    const recollDataDir = plugin.localSettings.recollDataDir;
-    const pathExtension = plugin.localSettings.pathExtensions.join(':');
+    const pythonPath = localSettings.pythonPath;
+    const recollDataDir = localSettings.recollDataDir;
+    const pathExtension = localSettings.pathExtensions.join(':');
 
-    if(!firstRun) {
-        if (recollindex_PID) {
-            const existingPid = recollindex_PID;    
-            saveProcessTermination(existingPid);
-        }
-    }
-    
-    // We either successfully terminated the previous recollindex process
-    // or it is very first execution of this function. In both cases,
-    // we initialize recollindex_PID to undefined.
-    recollindex_PID = undefined;
+    // Stop the recollindex process if this wsa running.
+    // We cannot have two sessions of recollindex runnning in parallel.
+    await safeProcessTermination();    
 
     // Depending on `plugin.settings.debug` we configure or not the pipe of stderr to the console
-    let stdErrOption: null | 'pipe';
-    if(plugin.settings.debug) {
+    let stdErrOption: 'ignore' | 'pipe';
+    if(settings.debug) {
         stdErrOption = 'pipe';
     } else {
-        stdErrOption = null;
+        stdErrOption = 'ignore';
     }
     
     // Spawn the recollindex process as a daemon
@@ -227,12 +220,12 @@ export async function runRecollIndex(firstRun:boolean = false): Promise<void> {
             RECOLL_DATADIR: recollDataDir,  // Add the path to recoll's share folder
         },
         detached: true, // Allow the process to run independently of its parent
-        stdio: [null, null, stdErrOption], // Ignore stdin, but allow stderr for logging
+        stdio: ['ignore','ignore', stdErrOption], // Ignore stdin, but allow stderr for logging
     });
 
     // Set up the listeners for the running process
     if(recollindexProcess && recollindexProcess.pid) {
-        if(plugin.settings.debug) {
+        if(settings.debug) {
             stderrListener = (data:unknown) => {
                 // recoll surprisingly uses stderr for printing ordinary logs
                 // thus, we redirect stderr to the ordinary console
@@ -241,7 +234,7 @@ export async function runRecollIndex(firstRun:boolean = false): Promise<void> {
                 // because people are familiar with it.
                 console.log(`recollindex stderr:\n${data}`);
             };
-            recollindexProcess.stderr.on('data',stderrListener)
+            if(recollindexProcess.stderr) recollindexProcess.stderr.on('data',stderrListener)
         };
         errorListener =  (error:Error) => {
             new Notice(`Error running recollindex:\n${error.message}`);
@@ -258,12 +251,15 @@ We now pause for ${Math.round(pause/1000)}s and then proceed with attempt ${numE
 
                 // add a delay and restart the process
                 await delay(pause);
-                const firstRun = false;
-                runRecollIndex(firstRun);
-            }          
+                runRecollIndex();
+            } else {
+                console.error(`recollindex process exited with code ${code}\n
+No further automatic attempt will be undertaken to restart recollindex. Switch to debug mode and check on the console what the cause of the problem is.`)
+            }        
         };
         recollindexProcess.on('close', closeListener);
     
+        // We now started the process; however, it may quit soon after if some problem occurs
         recollindex_PID = recollindexProcess.pid;
         console.log(`Successfully started the recollindex process with PID: ${recollindex_PID}.`)
     }
@@ -274,6 +270,17 @@ We now pause for ${Math.round(pause/1000)}s and then proceed with attempt ${numE
     }, 30*1000);
 }
 
+export async function runRecollIndex(): Promise<void> {
+    // For efficiency remove local settings from the copy
+    const { localSettings:_, ...settingsWithoutLocalSettings } = plugin.settings;
+
+    // Update the queue to include the current execution
+    queue = queue.then(()=>queuedRunRecollIndex(structuredClone(settingsWithoutLocalSettings),structuredClone(plugin.localSettings)));
+
+    // Wait for the current execution to finish before allowing the next one
+    await queue;
+}
+
 // Call this function when the plugin is unloaded
 export async function stopRecollIndex(): Promise<void> {
     if (recollindexProcess) {
@@ -281,9 +288,7 @@ export async function stopRecollIndex(): Promise<void> {
         // attempt from `closeListener` to keep the process alive
         // then we can safely send the sigterm command
         removeListeners();
-        if(recollindexProcess.pid) {
-            await saveProcessTermination(recollindexProcess.pid)
-        }
+        await safeProcessTermination()
         recollindexProcess = null;
         recollindex_PID = undefined;
     }

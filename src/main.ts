@@ -25,7 +25,7 @@ import { RecollSearchLocalSettings, RecollSearchSettings as RecollSearchSettings
 
 import { monkeyPatchConsole, unpatchConsole } from "patchConsole";
 
-import { isRecollindexRunning, restartRecollIndex, runRecollIndex, setPluginReference, stopRecollIndex, updateProcessLogging } from "recoll";
+import { isRecollindexRunning, runRecollIndex, setPluginReference, stopRecollIndex, updateProcessLogging } from "recoll";
 import { doesDirectoryExists, doesFileExists, getMACAddress, joinPaths, parseFilePath } from "utils";
 import { getMaxListeners } from "process";
 
@@ -80,8 +80,7 @@ export default class RecollSearch extends Plugin {
 		// console.log('Loaded plugin Recoll Search');
 
         this.app.workspace.onLayoutReady(() => {
-            const firstStart = true;
-            runRecollIndex(firstStart);
+            runRecollIndex();
         });
 
         // For example, triggering the worker when a command is run:
@@ -89,8 +88,7 @@ export default class RecollSearch extends Plugin {
             id: 'recollindex-restart',
             name: 'Gracefully restart recollindex',
             callback: async () => {
-                const firstStart = false;
-                restartRecollIndex();
+                runRecollIndex();
             }
         });
 
@@ -178,15 +176,37 @@ class RecollSearchSettingTab extends PluginSettingTab {
         const recollindex_status = isRecollindexRunning();
         const status_label = recollindex_status ? "running" : "not running"
 
+        let status_span: HTMLElement;
         const status_setting = new Setting(containerEl)
             .setName(createFragment((frag:DocumentFragment) => {
                 frag.appendText('Status of recollindex daemon service: ');
-                const status_span = createSpan({
-                    text: status_label, 
-                    cls: recollindex_status ? 'mod-success' : 'mod-warning'
-                });
+                status_span = createSpan();
                 frag.appendChild(status_span);
-            }));                
+            }));   
+
+        let busy = false;
+        // Function to update the status
+        const updateStatus = async () => {
+            if(busy) return;
+            busy = true;
+            const recollindex_status = isRecollindexRunning();
+            const status_label = recollindex_status ? "running" : "not running"
+            status_span.innerText = status_label;
+            if(recollindex_status) {
+                status_span.classList.remove('mod-warning');
+                status_span.classList.add('mod-success')
+            } else {
+                status_span.classList.remove('mod-success');
+                status_span.classList.add('mod-warning')
+            }
+            busy = false;
+        }
+
+        // Set an interval to update the status every 300 milliseconds
+        setInterval(updateStatus, 200);
+
+        // First call to configure the initial status
+        updateStatus();
 
         new Setting(containerEl).setName('Recoll environment paths').setHeading();
 
@@ -448,7 +468,6 @@ class RecollSearchSettingTab extends PluginSettingTab {
                 .onClick(() => {
                     const value = DEFAULT_SETTINGS.debug;                    
                     debug_toggle.setValue(value);
-                    updateProcessLogging(value);
                 });
         });
 	}
