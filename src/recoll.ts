@@ -222,6 +222,11 @@ async function queuedRunRecollIndex(settings:Omit<RecollSearchSettings, 'localSe
         detached: true, // Allow the process to run independently of its parent
         stdio: ['ignore','ignore', stdErrOption], // Ignore stdin, but allow stderr for logging
     });
+    
+    errorListener =  (error:Error) => {
+        attemptNewStart(`recollindex process unexpectedly exited: ${error.message}`);
+    };
+    recollindexProcess.on('error', errorListener);
 
     // Set up the listeners for the running process
     if(recollindexProcess && recollindexProcess.pid) {
@@ -236,40 +241,42 @@ async function queuedRunRecollIndex(settings:Omit<RecollSearchSettings, 'localSe
             };
             if(recollindexProcess.stderr) recollindexProcess.stderr.on('data',stderrListener)
         };
-        errorListener =  (error:Error) => {
-            new Notice(`Error running recollindex:\n${error.message}`);
-            console.error(`Error running recollindex:\n${error.message}`);
-        };
-        recollindexProcess.on('error', errorListener);
-
-        closeListener = async (code) => {
-            if(numExecAttemptsMade < 3) { // an error occurred
-                const pause = 5000;
-                numExecAttemptsMade++;
-                console.log(`recollindex process exited with code ${code}\n
-We now pause for ${Math.round(pause/1000)}s and then proceed with attempt ${numExecAttemptsMade}/${maxNumExecAttemptsMade} to restart recollindex.`);
-
-                // add a delay and restart the process
-                await delay(pause);
-                runRecollIndex();
-            } else {
-                console.error(`recollindex process exited with code ${code}\n
-No further automatic attempts to restart recollindex will be made. \
-If you have not already done so, switch to debug mode, start the process manually with the command \
-'Gracefully restart recollindex', and check the error message on the console to find out what caused the problem.`)
-            }        
+        
+        closeListener = (code) => {
+            if(code!=null) attemptNewStart(`recollindex process exited with code ${code}`);
         };
         recollindexProcess.on('close', closeListener);
     
         // We now started the process; however, it may quit soon after if some problem occurs
         recollindex_PID = recollindexProcess.pid;
         console.log(`Successfully started the recollindex process with PID: ${recollindex_PID}.`)
+    } else {
+        // We do not need to handle the error here. Instead, it will be caught by `errorListener``
     }
 
     // We wait for 30 seconds. If no error is detected, we reset `numExecAttemptsMade`
     successTimer = setTimeout(()=>{
         numExecAttemptsMade = 0;
     }, 30*1000);
+}
+
+async function attemptNewStart(msg:string) {
+    if(numExecAttemptsMade < 3) { // an error occurred
+        const pause = 5000;
+        numExecAttemptsMade++;
+        console.log(`${msg}\n
+We now pause for ${Math.round(pause/1000)}s and then proceed with attempt ${numExecAttemptsMade}/${maxNumExecAttemptsMade} to restart recollindex.`);
+
+        // add a delay and restart the process
+        await delay(pause);
+        runRecollIndex();
+    } else {
+        new Notice('recollindex process terminated unexpectedly');
+        console.error(`${msg}\n
+No further automatic attempts to restart recollindex will be made. \
+If you have not already done so, switch to debug mode, start the process manually with the command \
+'Gracefully restart recollindex', and check the error message on the console to find out what caused the problem.`)
+    }  
 }
 
 export async function runRecollIndex(): Promise<void> {

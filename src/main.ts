@@ -51,7 +51,6 @@ export default class RecollSearch extends Plugin {
     private exitListener: NodeJS.ExitListener | null = null;
     private sigintListener: ((...args: any[]) => void) | null = null;
     private sigtermListener: ((...args: any[]) => void) | null = null;
-    private uncaughtExceptionListener: NodeJS.UncaughtExceptionListener | null = null;
 
 	constructor(app: App, manifest: PluginManifest) {
 		super(app, manifest);
@@ -115,15 +114,10 @@ export default class RecollSearch extends Plugin {
         this.sigtermListener = () => {
             stopRecollIndex();
         }; // Called when a termination request is sent to the process
-        this.uncaughtExceptionListener = (err: Error) => {
-            console.error(`Uncaught exception: ${err.message}`);
-            stopRecollIndex();
-        }; // Called when an unhandled exception occurs
 
         process.on('exit', this.exitListener);
         process.on('SIGINT', this.sigintListener);
         process.on('SIGTERM', this.sigtermListener);
-        process.on('uncaughtException', this.uncaughtExceptionListener);
     }
 
     unregisterEvents() {
@@ -131,7 +125,6 @@ export default class RecollSearch extends Plugin {
         if(this.exitListener) process.off('exit', this.exitListener);
         if(this.sigintListener) process.off('SIGINT', this.sigintListener);
         if(this.sigtermListener) process.off('SIGTERM', this.sigtermListener);
-        if(this.uncaughtExceptionListener) process.off('uncaughtException', this.uncaughtExceptionListener);
     }
 
 	async loadSettings() {
