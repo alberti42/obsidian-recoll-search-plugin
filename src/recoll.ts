@@ -206,12 +206,12 @@ async function queuedRunRecollIndex(settings:Omit<RecollSearchSettings, 'localSe
         stdErrOption = 'ignore';
     }
     
-    // Spawn the recollindex process as a daemon
+    // Spawn the recollindex process
     // Option:
     // -m:  real-time indexing
-    // -O:  similar to -D but it shutdown the recollindex daemon if the process gets detached from its parent
+    // -O:  similar to -D but it shutdown the recollindex process if the process gets detached from its parent
     // -w0: start indexing with 0 second delay
-    // -x:  daemon will stay alive even if it cannot connect to the X11 server, which is here not needed
+    // -x:  process will stay alive even if it cannot connect to the X11 server, which is here not needed
     recollindexProcess = spawn(recollindex_cmd, ['-m', '-O', '-w0', '-x'], {
         env: {
             ...process.env,
