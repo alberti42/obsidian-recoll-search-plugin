@@ -5,47 +5,35 @@ import { promises as fs } from 'fs';
 import {networkInterfaces, hostname } from "os";
 
 
-// https://github.com/bevry/getmac/blob/master/source/index.ts
-// I could not install it from npm. Decided to copy&paste the code here directly.
-function getMAC(iface?: string): string {
+export function getMACAddress(existingMACs:string[]): string {
     const zeroRegex = /(?:[0]{1,2}[:-]){5}[0]{1,2}/
     const list = networkInterfaces()
-    if (iface) {
-        const parts = list[iface]
-        if (!parts) {
-            throw new Error(`interface ${iface} was not found`)
-        }
+    let found_mac = null;
+    for (const [key, parts] of Object.entries(list)) {
+        if (!parts) continue
         for (const part of parts) {
             if (zeroRegex.test(part.mac) === false) {
-                return part.mac
-            }
-        }
-        throw new Error(`interface ${iface} had no valid mac addresses`)
-    } else {
-        for (const [key, parts] of Object.entries(list)) {
-            // for some reason beyond me, this is needed to satisfy typescript
-            // fix https://github.com/bevry/getmac/issues/100
-            if (!parts) continue
-            for (const part of parts) {
-                if (zeroRegex.test(part.mac) === false) {
-                    return part.mac
-                }
+                if(existingMACs.contains(part.mac)) return part.mac;
+                if(found_mac===null) found_mac = part.mac; // record the first occurrance
             }
         }
     }
-    throw new Error('failed to get the MAC address')
+    if(found_mac) return found_mac;
+    const fallback_MAC = '00-00-00-00-00-00';
+    console.error('Failed to get the MAC address. Using the fallback MAC address: ${fallback_MAC}')
+    return fallback_MAC;
 }
 
 export function getHostname():string {
     return hostname();
 }
 
-let macAddress:string|undefined = undefined;
-export function getMACAddress(): string {
-    if(macAddress) return macAddress;
-    macAddress = getMAC();
-    return macAddress;
-}
+// let macAddress:string|undefined = undefined;
+// export function getMACAddress(existingMACs:string[]): string {
+//     if(macAddress) return macAddress;
+//     macAddress = getMAC();
+//     return macAddress;
+// }
 
 // Joins multiple path segments into a single normalized path.
 export function joinPaths(...paths: string[]): string {
