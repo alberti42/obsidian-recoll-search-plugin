@@ -192,6 +192,10 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
         const item = document.createElement('div');
         item.classList.add('recoll-search-item');
 
+        const relevanceEl = document.createElement('div');
+        relevanceEl.textContent = "Relevance";
+        relevanceEl.classList.add('recoll-search-relevance');
+
         const nameEl = document.createElement('div');
         nameEl.textContent = "Filename";
         nameEl.classList.add('recoll-search-name');
@@ -207,11 +211,12 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
         const typeEl = document.createElement('div');
         typeEl.textContent = "Type";
         typeEl.classList.add('recoll-search-type');
-
+        
         const tagsEl = document.createElement('div');
         tagsEl.textContent = "Tags";
         tagsEl.classList.add('recoll-search-tags');
 
+        item.appendChild(relevanceEl);
         item.appendChild(nameEl);
         item.appendChild(createdEl);
         item.appendChild(modifiedDate);
@@ -266,6 +271,10 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
         const suggestionContainer = document.createElement('div');
         suggestionContainer.classList.add('recoll-search-item');
 
+        const relevanceEl = document.createElement('div');
+        relevanceEl.textContent = result.relevance;
+        relevanceEl.classList.add('recoll-search-relevance');
+
         const nameEl = document.createElement('div');
         nameEl.textContent = result.fileName;
         nameEl.classList.add('recoll-search-name');
@@ -308,6 +317,7 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
             });
         }
 
+        suggestionContainer.appendChild(relevanceEl);
         suggestionContainer.appendChild(nameEl);
         suggestionContainer.appendChild(createdEl);
         suggestionContainer.appendChild(modifiedDate);

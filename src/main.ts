@@ -281,7 +281,6 @@ class RecollSearchSettingTab extends PluginSettingTab {
                 });
         });
 
-
         const recollq_setting = new Setting(containerEl)
             .setName("Path to recollq utility")
             .setDesc(`Absolute path to 'recollq' utility. \

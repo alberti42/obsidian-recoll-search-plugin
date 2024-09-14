@@ -35,17 +35,18 @@
 
 .recoll-search-created,
 .recoll-search-modified,
-.recoll-search-type {
+.recoll-search-type,
+.recoll-search-relevance {
 	flex-grow: 0;
-	flex-basis: 15%; /* Set a fixed width for file type */
-	text-align: left; /* Align text to the center */
+	flex-basis: 15%;
+	text-align: left;
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	overflow: hidden;
 }
 
-.recoll-search-type {
-	font-weight: var(--font-semibold);
+.recoll-search-relevance {
+	flex-basis: 6%;
 }
 
 .recoll-search-tags {
