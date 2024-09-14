@@ -1,0 +1,61 @@
+/* styles.css */
+
+.recoll-search {
+	width: 100%;
+	display: flex;
+	flex-direction: column; /* Stack items vertically */
+}
+
+.recoll-search .prompt-labels {
+	padding: var(--size-4-3);
+	margin: 0;
+}
+
+.recoll-search .prompt-labels div {
+    margin: 0;
+    white-space: pre-wrap;
+    border-radius: var(--radius-s);
+    font-weight: var(--font-semibold);
+}
+
+.recoll-search-item {
+	display: flex;
+	justify-content: space-between;
+	width: 100%;
+	gap: var(--size-4-2); /* Space between columns */
+}
+
+.recoll-search-name {
+	flex-grow: 3;
+	min-width: 50%; /* Ensure name column takes up a minimum width */
+	white-space: nowrap; /* Prevent text wrapping */
+	text-overflow: ellipsis; /* Show ellipsis for overflowed text */
+	overflow: hidden;
+}
+
+.recoll-search-created,
+.recoll-search-modified,
+.recoll-search-type {
+	flex-grow: 0;
+	flex-basis: 15%; /* Set a fixed width for file type */
+	text-align: left; /* Align text to the center */
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	overflow: hidden;
+}
+
+.recoll-search-type {
+	font-weight: var(--font-semibold);
+}
+
+.recoll-search-tags {
+	flex-grow: 0;
+	flex-basis: 20%; /* Set a fixed width for tags */
+	display: flex;
+	gap: var(--size-4-1); /* Space between tags */
+	align-items: center;
+	justify-content: flex-end; /* Align tags to the right */
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	overflow: hidden;
+}

@@ -4,6 +4,7 @@ import { DEFAULT_SETTINGS } from "default";
 
 export interface RecollSearchSettings {
     debug: boolean;
+    dateFormat: string;
     debouncingTime: number; // debouncing time in ms before running recollindex 
     compatibility: "1.0";
     localSettings: {[MACAddress:string]: RecollSearchLocalSettings};
@@ -15,6 +16,7 @@ export interface RecollSearchLocalSettings {
     recollDataDir: string;
     pathExtensions: string[];
     recollindexCmd: string;
+    recollqCmd: string;
 }
 
 export interface ParsedPath {

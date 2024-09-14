@@ -90,3 +90,9 @@ export async function doesDirectoryExists(filePath: string): Promise<boolean> {
 export function delay(ms: number) {
     return new Promise( resolve => setTimeout(resolve, ms) );
 }
+
+export function formatUnixTime(unixTime: number, dateFormat: string): string {
+    // Convert Unix time to a moment object and format it
+    const formattedDate = window.moment(unixTime * 1000).format(dateFormat);
+    return formattedDate;
+}

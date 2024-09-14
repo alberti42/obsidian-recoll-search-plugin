@@ -18,4 +18,15 @@ declare module "obsidian" {
     interface Vault {
         writeJson:(dir:string, data:any, { mtime:number }) => Promise<void>;
     }
+
+    interface SuggestModal<T> {
+        chooser: Chooser<T>;
+    }
+
+    interface Chooser<T> {
+        values: T[];
+        selectedItem: number;
+        useSelectedItem: (event?: KeyboardEvent) => void;
+        setSuggestions: (items: T[]) => void;
+    }
 }

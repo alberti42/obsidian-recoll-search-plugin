@@ -29,6 +29,10 @@ import { isRecollindexRunning, runRecollIndex, setPluginReference, stopRecollInd
 import { doesDirectoryExists, doesFileExists, getMACAddress, joinPaths, parseFilePath } from "utils";
 import { getMaxListeners } from "process";
 
+import { sep, posix } from "path"
+
+import { RecollqSearchModal } from "RecollqSearchModal";
+
 // Helper function to check if a node is an Element
 function isElement(node: Node): node is Element {
     return node.nodeType === Node.ELEMENT_NODE;
@@ -52,6 +56,8 @@ export default class RecollSearch extends Plugin {
     private sigintListener: ((...args: any[]) => void) | null = null;
     private sigtermListener: ((...args: any[]) => void) | null = null;
 
+    private vaultPath: string = "";
+
 	constructor(app: App, manifest: PluginManifest) {
 		super(app, manifest);
 
@@ -69,6 +75,23 @@ export default class RecollSearch extends Plugin {
 
 		this.settingsTab = new RecollSearchSettingTab(this.app, this);        
 	}
+
+    // Store the path to the vault
+    getVaultPath():string {
+        if(this.vaultPath) return this.vaultPath;
+
+        if (Platform.isDesktopApp) {
+            // store the vault path
+            const adapter = this.app.vault.adapter;
+            if (!(adapter instanceof FileSystemAdapter)) {
+                throw new Error("The vault folder could not be determined.");
+            }
+            // Normalize to POSIX-style path
+            this.vaultPath = adapter.getBasePath().split(posix.sep).join(sep);
+            
+            return this.vaultPath;
+        } else return "";
+    }
 
 	// Load plugin settings
 	async onload() {
@@ -88,6 +111,15 @@ export default class RecollSearch extends Plugin {
             name: 'Gracefully restart recollindex',
             callback: async () => {
                 runRecollIndex();
+            }
+        });
+
+        this.addCommand({
+            id: 'recollq-search',
+            name: 'Search files',
+            callback: () => {
+                const modal = new RecollqSearchModal(this.app,this);
+                modal.open();
             }
         });
 
@@ -248,6 +280,50 @@ class RecollSearchSettingTab extends PluginSettingTab {
         });
 
 
+        const recollq_setting = new Setting(containerEl)
+            .setName("Path to recollq utility")
+            .setDesc(`Absolute path to 'recollq' utility. \
+                This setting applies to this local host with MAC address '${MACAddress}'.`);
+
+        let recollq_text:TextComponent;
+        recollq_setting.addText(text => {
+                recollq_text = text;
+                const warningEl = containerEl.createDiv({ cls: 'mod-warning' });
+                text.setPlaceholder('/usr/local/bin/recollq')
+                .setValue(this.plugin.localSettings.recollqCmd)
+                .onChange(async (value) => {
+                    // Remove any previous warning text
+                    warningEl.textContent = '';
+                    const parsedPath = parseFilePath(value);
+
+                    // when the field is empty, we don't consider it as an error,
+                    // but simply as no input was provided yet
+                    const isEmpty = value === "";
+
+                    if (!isEmpty && !await doesFileExists(value)) {
+                        warningEl.textContent = "Please enter the path of an existing file.";
+                        warningEl.style.display = 'block';
+                    } else {
+                        // Hide the warning and save the valid value
+                        warningEl.style.display = 'none';
+                        this.plugin.localSettings.recollqCmd = value;
+                        this.plugin.saveSettings();
+                    }
+                })
+            });
+
+        recollq_setting.addExtraButton((button) => {
+            button
+                .setIcon("reset")
+                .setTooltip("Reset to default value")
+                .onClick(() => {
+                    const value = DEFAULT_LOCAL_SETTINGS.recollqCmd;
+                    recollq_text.setValue(value);
+                    this.plugin.localSettings.recollqCmd = value;
+                    this.plugin.saveSettings();
+                });
+        });
+
         const python_path_setting = new Setting(containerEl)
             .setName("Path to site-packages directory")
             .setDesc(`Absolute path (PYTHONPATH) to 'site-packages' directory that contains the python module 'recoll'. \
@@ -390,6 +466,42 @@ class RecollSearchSettingTab extends PluginSettingTab {
         });
 
         new Setting(containerEl).setName('Indexing').setHeading();
+
+        const date_format_setting = new Setting(containerEl)
+            .setName('Date format used in frontmatter:')
+            .setDesc(createFragment((frag) => {
+                frag.appendText('Choose the date format that is used in the frontmatter of MarkDown notes. The format is based on ');
+                frag.createEl('a', {
+                    href: 'https://momentjscom.readthedocs.io/en/latest/moment/04-displaying/01-format',
+                    text: 'momentjs',
+                });
+                frag.appendText(' syntax.');
+            }))
+
+        let date_format_text:TextComponent;
+        date_format_setting.addText(text => {
+            date_format_text = text;
+            text.setPlaceholder('Enter date format');
+            text.setValue(this.plugin.settings.dateFormat);
+            text.onChange(async (value: string) => {
+                this.plugin.settings.dateFormat = value;
+                this.plugin.saveSettings();
+            })
+        });
+
+        date_format_setting.addExtraButton((button) => {
+            button
+                .setIcon("reset")
+                .setTooltip("Reset to default value")
+                .onClick(() => {
+                    const value = DEFAULT_SETTINGS.dateFormat;
+                    date_format_text.setValue(value);
+                    this.plugin.settings.dateFormat = value;
+                    this.plugin.saveSettings();
+                });
+        });
+
+
 
         // let debouncing_time_warningEl:HTMLElement;
         // const debouncing_time_setting = new Setting(containerEl)

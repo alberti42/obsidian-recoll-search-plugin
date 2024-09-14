@@ -5,6 +5,7 @@ import { RecollSearchLocalSettings, RecollSearchSettings } from 'types'
 // Default plugin settings
 export const DEFAULT_SETTINGS: RecollSearchSettings = {
     debug: false,
+    dateFormat: 'YYYY_MM_DDTHH_mm_ss',
     localSettings: {},
     debouncingTime: 1000,  // debouncing time in ms before running recollindex 
 	logs: {}, // Initialize logs as an empty array
@@ -16,4 +17,5 @@ export const DEFAULT_LOCAL_SETTINGS: RecollSearchLocalSettings = {
     recollDataDir: '',
     pathExtensions: [''],
     recollindexCmd: '',
+    recollqCmd: '',    
 }
