@@ -5,6 +5,7 @@ import { DEFAULT_SETTINGS } from "default";
 export interface RecollSearchSettings {
     debug: boolean;
     dateFormat: string;
+    filterType: FilterType;
     debouncingTime: number; // debouncing time in ms before running recollindex 
     compatibility: "1.0";
     localSettings: {[MACAddress:string]: RecollSearchLocalSettings};
@@ -25,4 +26,10 @@ export interface ParsedPath {
     filename: string,
     ext: string,
     path: string
+}
+
+export enum FilterType {
+    MARKDOWN = 0,
+    ANY_FILE = 1,
+    ANY = 2,
 }

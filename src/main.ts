@@ -285,7 +285,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
         const recollq_setting = new Setting(containerEl)
             .setName("Path to recollq utility")
             .setDesc(`Absolute path to 'recollq' utility. \
-                This setting applies to this local host with MAC address '${MACAddress}'.`);
+                This setting applies to this local host with MAC address '${this.plugin.MACaddress}'.`);
 
         let recollq_text:TextComponent;
         recollq_setting.addText(text => {

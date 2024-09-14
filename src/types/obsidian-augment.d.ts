@@ -21,6 +21,8 @@ declare module "obsidian" {
 
     interface SuggestModal<T> {
         chooser: Chooser<T>;
+        instructionsEl: HTMLElement;
+        updateSuggestions(): void;
     }
 
     interface Chooser<T> {
