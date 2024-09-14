@@ -18,10 +18,11 @@ import {
 	normalizePath,
     ToggleComponent,
     EventRef,
+    DropdownComponent,
 } from "obsidian";
 
 import { DEFAULT_LOCAL_SETTINGS, DEFAULT_SETTINGS } from "default";
-import { RecollSearchLocalSettings, RecollSearchSettings as RecollSearchSettings } from "types";
+import { RecollSearchLocalSettings, RecollSearchSettings, AltKeyBehavior } from "types";
 
 import { monkeyPatchConsole, unpatchConsole } from "patchConsole";
 
@@ -576,6 +577,49 @@ class RecollSearchSettingTab extends PluginSettingTab {
                     debug_toggle.setValue(value);
                 });
         });
+
+
+        new Setting(containerEl).setName('Obsidian integration').setHeading();
+
+        let altSymbol;
+        if (Platform.isMacOS) {
+            altSymbol = '⌥';
+        } else { // Default to Windows/Linux bindings
+            altSymbol = 'Alt';
+        }
+        const alt_key_behavior = new Setting(containerEl)
+            .setName(`Modifier key ${altSymbol}:`)
+            .setDesc(`Choose how notes should be opened when the modifier key ${altSymbol} is pressed.`);
+
+        let alt_key_dropdown:DropdownComponent;
+        alt_key_behavior.addDropdown(dropdown => {
+            alt_key_dropdown = dropdown; 
+            dropdown.addOption(AltKeyBehavior.TAB, 'In a new tab');
+            dropdown.addOption(AltKeyBehavior.SPLIT, 'In a split pane');
+            dropdown.addOption(AltKeyBehavior.WINDOW, 'In a new window');
+            dropdown.setValue(this.plugin.settings.altKeyBehavior)
+            .onChange(async (value: string) => {
+                if (Object.values(AltKeyBehavior).includes(value as AltKeyBehavior)) {
+                this.plugin.settings.altKeyBehavior = value as AltKeyBehavior;
+                    await this.plugin.saveSettings();
+                } else {
+                    console.error('Invalid option selection:', value);
+                }
+        })});
+
+        alt_key_behavior.addExtraButton((button) => {
+            button
+                .setIcon("reset")
+                .setTooltip("Reset to default value")
+                .onClick(() => {
+                    const value = DEFAULT_SETTINGS.altKeyBehavior;
+                    alt_key_dropdown.setValue(value);
+                    this.plugin.settings.altKeyBehavior = value;
+                    this.plugin.saveSettings();
+                });
+        });
+
+
 	}
 
 	hide(): void {   

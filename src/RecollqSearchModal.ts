@@ -2,7 +2,8 @@ import { App, SuggestModal, Notice, Platform, TFile } from 'obsidian';
 import { spawn } from 'child_process';
 import RecollSearch from 'main';
 import { formatUnixTime } from 'utils';
-import { FilterType } from 'types';
+import { FilterType, AltKeyBehavior } from 'types';
+import { DEFAULT_SETTINGS } from 'default';
 
 // Interface for Recoll result
 interface RecollResult {
@@ -20,12 +21,6 @@ const filter_msg = {
     1 : 'all files excluding dirs', // ANY_FILE = 1
     2 : 'all files and dirs' // ANY = 2
 };
-
-enum MetaKeyBehavior {
-    WINDOW = 'window',
-    SPLIT = 'split',
-    TAB = 'tab',
-}
 
 export class RecollqSearchModal extends SuggestModal<RecollResult> {
     private recollindex_cmd: string;
@@ -50,12 +45,24 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
         } else { // Default to Windows/Linux bindings
             altSymbol = 'Alt';
         }
+        let alt_open_msg;
+        switch(this.plugin.settings.altKeyBehavior) {
+        case AltKeyBehavior.SPLIT:
+            alt_open_msg = 'split pane';
+            break;
+        case AltKeyBehavior.TAB:
+            alt_open_msg = 'tab';
+            break;
+        case AltKeyBehavior.WINDOW:
+            alt_open_msg = 'window';
+            break;
+        }
         return [
             { command: 'Search:', purpose: filter_msg[this.plugin.settings.filterType] },
             { command: 'TAB', purpose: 'switch filter' },
             { command: '↑↓', purpose: 'navigate' },
             { command: "↵", purpose: "open the selected paper" },
-            { command: altSymbol, purpose: 'open it in a new tab' },
+            { command: altSymbol, purpose: 'open it in a new ' + alt_open_msg },
             { command: 'esc', purpose: 'to dismiss' },
         ];
     }
@@ -180,7 +187,7 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
     }
 
     // evt.isComposing determines whether the event is part of a key composition
-    if (evt.key === 'Enter' && !evt.isComposing && evt.metaKey) {
+    if (evt.key === 'Enter' && !evt.isComposing && evt.altKey) {
         this.chooser.useSelectedItem(evt);
     }
 }
@@ -330,6 +337,8 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
 
     // Perform action on the selected suggestion
     onChooseSuggestion(result: RecollResult, evt: MouseEvent | KeyboardEvent) {
+        const shouldCreateNewLeaf = evt.altKey; // alt key pressed
+
         const absolutePath = result.filePath.slice(7);  // remove the prefix 'file://'
 
         // Remove the vault path prefix
@@ -339,12 +348,32 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
 
         // Find the file in the vault using Obsidian's API
         const file = this.app.vault.getAbstractFileByPath(relativePath);
-        
-        if (file instanceof TFile) {
-            // Open the file in the current workspace
-            this.app.workspace.openLinkText(relativePath, '', true);
-        } else {
+
+        if (!(file instanceof TFile)) {
             new Notice(`File not found in vault: ${result.fileName}`, 5000);
+            return;
+        }
+        let leaf = this.app.workspace.getMostRecentLeaf();
+        if (shouldCreateNewLeaf || (leaf && leaf.getViewState().pinned)) {
+            let default_behavior = DEFAULT_SETTINGS.altKeyBehavior;
+            switch(this.plugin.settings.altKeyBehavior){
+            case AltKeyBehavior.SPLIT:
+                default_behavior = AltKeyBehavior.SPLIT;
+                break;
+            case AltKeyBehavior.TAB:
+                default_behavior = AltKeyBehavior.TAB;
+                break;
+            case AltKeyBehavior.WINDOW:
+                default_behavior = AltKeyBehavior.WINDOW;
+                break;
+            }
+            leaf = this.app.workspace.getLeaf(default_behavior);
+        }
+        if (leaf) {
+            // this.app.workspace.openLinkText(relativePath, '', true);
+            leaf.openFile(file);
+        } else {
+            console.error("Error in creating a leaf for the file to be opened:", result.fileName);
         }
     }
 

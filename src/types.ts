@@ -6,6 +6,7 @@ export interface RecollSearchSettings {
     debug: boolean;
     dateFormat: string;
     filterType: FilterType;
+    altKeyBehavior: AltKeyBehavior;
     debouncingTime: number; // debouncing time in ms before running recollindex 
     compatibility: "1.0";
     localSettings: {[MACAddress:string]: RecollSearchLocalSettings};
@@ -32,4 +33,10 @@ export enum FilterType {
     MARKDOWN = 0,
     ANY_FILE = 1,
     ANY = 2,
+}
+
+export enum AltKeyBehavior {
+    WINDOW = 'window',
+    SPLIT = 'split',
+    TAB = 'tab',
 }
