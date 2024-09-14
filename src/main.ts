@@ -46,6 +46,7 @@ function isHTMLElement(node: Node): node is HTMLElement {
 export default class RecollSearch extends Plugin {
 	settings: RecollSearchSettings = { ...DEFAULT_SETTINGS };
     localSettings: RecollSearchLocalSettings = { ...DEFAULT_LOCAL_SETTINGS };
+    MACaddress!: string; // initialized by `this.loadSettings()`
     
     private settingsTab: RecollSearchSettingTab;
     private createEventRef: EventRef|null = null;
@@ -73,6 +74,8 @@ export default class RecollSearch extends Plugin {
         
         setPluginReference(this);
 
+        this.loadSettings(); // this sets `this.MACaddress`
+
 		this.settingsTab = new RecollSearchSettingTab(this.app, this);        
 	}
 
@@ -95,9 +98,7 @@ export default class RecollSearch extends Plugin {
 
 	// Load plugin settings
 	async onload() {
-        // Load and add settings tab
-		await this.loadSettings();
-		this.addSettingTab(this.settingsTab);
+        this.addSettingTab(this.settingsTab);
         
 		// console.log('Loaded plugin Recoll Search');
 
@@ -161,11 +162,14 @@ export default class RecollSearch extends Plugin {
 
 	async loadSettings() {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-        this.localSettings = Object.assign({}, DEFAULT_LOCAL_SETTINGS, this.settings.localSettings[getMACAddress()]);
+        const registered_MAC_addresses = Object.keys(this.settings.localSettings);
+        this.MACaddress = getMACAddress(registered_MAC_addresses);
+        this.localSettings = Object.assign({}, DEFAULT_LOCAL_SETTINGS, this.settings.localSettings[this.MACaddress]);
 	}
 
     async saveSettings() {
-        this.settings.localSettings[getMACAddress()] = this.localSettings;
+        if(!this.MACaddress) return;
+        this.settings.localSettings[this.MACaddress] = this.localSettings;
         try {
             await this.saveData(this.settings);
         } catch(error) {
@@ -192,8 +196,6 @@ class RecollSearchSettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
         
-        const MACAddress = getMACAddress();
-
 		containerEl.empty();
 
         new Setting(containerEl).setName('Recoll status').setHeading();
@@ -238,7 +240,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
         const recollindex_setting = new Setting(containerEl)
             .setName("Path to recollindex utility")
             .setDesc(`Absolute path to 'recollindex' utility. \
-                This setting applies to this local host with MAC address '${MACAddress}'.`);
+                This setting applies to this local host with MAC address '${this.plugin.MACaddress}'.`);
 
         let recollindex_text:TextComponent;
         recollindex_setting.addText(text => {
@@ -327,7 +329,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
         const python_path_setting = new Setting(containerEl)
             .setName("Path to site-packages directory")
             .setDesc(`Absolute path (PYTHONPATH) to 'site-packages' directory that contains the python module 'recoll'. \
-                    This setting applies to this local host with MAC address '${MACAddress}'.`);
+                    This setting applies to this local host with MAC address '${this.plugin.MACaddress}'.`);
 
         let python_path_text:TextComponent;
         python_path_setting.addText(text => {
@@ -371,7 +373,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
         const recoll_datadir_setting = new Setting(containerEl)
             .setName("Path to share/recoll directory")
             .setDesc(`Absolute path (RECOLL_DATADIR) to recoll data directory 'recoll/share'. \
-                This setting applies to this local host with MAC address '${MACAddress}'.`);
+                This setting applies to this local host with MAC address '${this.plugin.MACaddress}'.`);
 
         let recoll_datadir_text:TextComponent;
         recoll_datadir_setting.addText(text => {
@@ -415,7 +417,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
         const path_extensions_setting = new Setting(containerEl)
             .setName("Directories to be added to $PATH")
             .setDesc(`List of absolute paths to directories separated by ':' that are added to $PATH. \
-                This setting applies to this local host with MAC address '${MACAddress}'.`);
+                This setting applies to this local host with MAC address '${this.plugin.MACaddress}'.`);
 
         let path_extensions_text:TextComponent;
         path_extensions_setting.addText(text => {
