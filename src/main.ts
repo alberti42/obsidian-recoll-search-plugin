@@ -27,7 +27,7 @@ import { RecollSearchLocalSettings, RecollSearchSettings, AltKeyBehavior } from 
 import { monkeyPatchConsole, unpatchConsole } from "patchConsole";
 
 import { isRecollindexRunning, runRecollIndex, setPluginReference, stopRecollIndex, updateProcessLogging } from "recoll";
-import { doesDirectoryExists, doesFileExists, getMACAddress, joinPaths, parseFilePath } from "utils";
+import { doesDirectoryExists, doesFileExists, getMACAddress, joinPaths, parseFilePath, debounceFactoryWithWaitMechanism } from "utils";
 import { getMaxListeners } from "process";
 
 import { sep, posix } from "path"
@@ -60,8 +60,22 @@ export default class RecollSearch extends Plugin {
 
     private vaultPath: string = "";
 
+     // Declare class methods that will be initialized in the constructor
+    debouncedSaveSettings: (callback?: () => void) => void;
+    waitForSaveToComplete: () => Promise<void>;
+
 	constructor(app: App, manifest: PluginManifest) {
 		super(app, manifest);
+
+        // Set up debounced saving functions
+        const timeout_debounced_saving_ms = 100;
+        const { debouncedFct, waitFnc } = debounceFactoryWithWaitMechanism(
+            async (callback: () => void = (): void => {}) => {
+                await this.saveSettings();
+                if(callback) callback();
+            }, timeout_debounced_saving_ms);
+        this.debouncedSaveSettings = debouncedFct;
+        this.waitForSaveToComplete = waitFnc;
 
         const adapter = this.app.vault.adapter;
         if (!(adapter instanceof FileSystemAdapter)) {
@@ -271,7 +285,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
                         // Hide the warning and save the valid value
                         recollindex_warning.style.display = 'none';
                         this.plugin.localSettings.recollindexCmd = value;
-                        this.plugin.saveSettings();
+                        this.plugin.debouncedSaveSettings();
                     }
                 })
             });
@@ -284,7 +298,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
                     const value = DEFAULT_LOCAL_SETTINGS.recollindexCmd;
                     recollindex_text.setValue(value);
                     this.plugin.localSettings.recollindexCmd = value;
-                    this.plugin.saveSettings();
+                    this.plugin.debouncedSaveSettings();
                 });
         });
 
@@ -317,7 +331,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
                         // Hide the warning and save the valid value
                         recollq_warning.style.display = 'none';
                         this.plugin.localSettings.recollqCmd = value;
-                        this.plugin.saveSettings();
+                        this.plugin.debouncedSaveSettings();
                     }
                 })
             });
@@ -330,7 +344,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
                     const value = DEFAULT_LOCAL_SETTINGS.recollqCmd;
                     recollq_text.setValue(value);
                     this.plugin.localSettings.recollqCmd = value;
-                    this.plugin.saveSettings();
+                    this.plugin.debouncedSaveSettings();
                 });
         });
 
@@ -372,7 +386,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
                         // Hide the warning and save the valid value
                         python_path_warning.style.display = 'none';
                         this.plugin.localSettings.pythonPath = value;
-                        await this.plugin.saveSettings();
+                        await this.plugin.debouncedSaveSettings();
                     }
                 })
             });
@@ -385,7 +399,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
                     const value = DEFAULT_LOCAL_SETTINGS.pythonPath;
                     python_path_text.setValue(value);
                     this.plugin.localSettings.pythonPath = value;
-                    this.plugin.saveSettings();
+                    this.plugin.debouncedSaveSettings();
                 });
         });
 
@@ -393,7 +407,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
         const recoll_datadir_setting = new Setting(containerEl)
             .setName("Path to share/recoll directory")
             .setDesc(createFragment((frag:DocumentFragment) => {
-                frag.appendText("Absolute path (RECOLL_DATADIR) to recoll data directory 'recoll/share' on your computer.");
+                frag.appendText("Absolute path (RECOLL_DATADIR) to recoll data directory 'share/recoll' on your computer.");
                 frag.appendChild(createEl('p',{text:LOCALHOST_SETTING}));
                 recoll_datadir_warning = createEl('p',{cls:'mod-warning', text:'Please enter the path of an existing file.'});
                 recoll_datadir_warning.style.display = 'none';
@@ -419,7 +433,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
                         // Hide the warning and save the valid value
                         recoll_datadir_warning.style.display = 'none';
                         this.plugin.localSettings.recollDataDir = value;
-                        this.plugin.saveSettings();
+                        this.plugin.debouncedSaveSettings();
                     }
                 })
             });
@@ -432,7 +446,54 @@ class RecollSearchSettingTab extends PluginSettingTab {
                     const value = DEFAULT_LOCAL_SETTINGS.recollDataDir;
                     recoll_datadir_text.setValue(value);
                     this.plugin.localSettings.recollDataDir = value;
-                    this.plugin.saveSettings();
+                    this.plugin.debouncedSaveSettings();
+                });
+        });
+
+        let recoll_confdir_warning:HTMLElement;
+        const recoll_confdir_setting = new Setting(containerEl)
+            .setName("Path to share/recoll directory")
+            .setDesc(createFragment((frag:DocumentFragment) => {
+                frag.appendText("Absolute path (RECOLL_CONFDIR) to recoll configuration directory on your computer.");
+                frag.appendChild(createEl('p',{text:LOCALHOST_SETTING}));
+                recoll_confdir_warning = createEl('p',{cls:'mod-warning', text:'Please enter the path of an existing file.'});
+                recoll_confdir_warning.style.display = 'none';
+                frag.appendChild(recoll_confdir_warning);
+            }));
+
+        let recoll_confdir_text:TextComponent;
+        recoll_confdir_setting.addText(text => {
+                recoll_confdir_text = text;
+                text.setPlaceholder('/usr/local/share/recoll')
+                .setValue(this.plugin.localSettings.recollConfDir)
+                .onChange(async (value) => {
+                    // Remove any previous warning text
+                    const parsedPath = parseFilePath(value);
+
+                    // when the field is empty, we don't consider it as an error,
+                    // but simply as no input was provided yet
+                    const isEmpty = value === "";
+
+                    if (!isEmpty && !await doesDirectoryExists(value)) {
+                        recoll_confdir_warning.style.display = 'block';
+                    } else {
+                        // Hide the warning and save the valid value
+                        recoll_confdir_warning.style.display = 'none';
+                        this.plugin.localSettings.recollConfDir = value;
+                        this.plugin.debouncedSaveSettings();
+                    }
+                })
+            });
+
+        recoll_confdir_setting.addExtraButton((button) => {
+            button
+                .setIcon("reset")
+                .setTooltip("Reset to default value")
+                .onClick(() => {
+                    const value = DEFAULT_LOCAL_SETTINGS.recollConfDir;
+                    recoll_confdir_text.setValue(value);
+                    this.plugin.localSettings.recollConfDir = value;
+                    this.plugin.debouncedSaveSettings();
                 });
         });
 
@@ -477,7 +538,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
                         // Hide the warning and save the valid value
                         path_extensions_warning.style.display = 'none';
                         this.plugin.localSettings.pathExtensions = paths.filter((path:string) => path !== "");
-                        this.plugin.saveSettings();
+                        this.plugin.debouncedSaveSettings();
                     }
                 })
             });
@@ -490,7 +551,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
                     const values = DEFAULT_LOCAL_SETTINGS.pathExtensions;
                     recoll_datadir_text.setValue(values.join(':'));
                     this.plugin.localSettings.pathExtensions = values;
-                    this.plugin.saveSettings();
+                    this.plugin.debouncedSaveSettings();
                 });
         });
 
@@ -514,7 +575,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
             text.setValue(this.plugin.settings.dateFormat);
             text.onChange(async (value: string) => {
                 this.plugin.settings.dateFormat = value;
-                this.plugin.saveSettings();
+                this.plugin.debouncedSaveSettings();
             })
         });
 
@@ -526,7 +587,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
                     const value = DEFAULT_SETTINGS.dateFormat;
                     date_format_text.setValue(value);
                     this.plugin.settings.dateFormat = value;
-                    this.plugin.saveSettings();
+                    this.plugin.debouncedSaveSettings();
                 });
         });
 
@@ -590,7 +651,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
             .setValue(this.plugin.settings.debug)
             .onChange(async (value: boolean) => {
                 this.plugin.settings.debug = value;
-                this.plugin.saveSettings();
+                this.plugin.debouncedSaveSettings();
                 updateProcessLogging(value);
             })
         });
@@ -628,7 +689,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
             .onChange(async (value: string) => {
                 if (Object.values(AltKeyBehavior).includes(value as AltKeyBehavior)) {
                 this.plugin.settings.altKeyBehavior = value as AltKeyBehavior;
-                    await this.plugin.saveSettings();
+                    await this.plugin.debouncedSaveSettings();
                 } else {
                     console.error('Invalid option selection:', value);
                 }
@@ -642,7 +703,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
                     const value = DEFAULT_SETTINGS.altKeyBehavior;
                     alt_key_dropdown.setValue(value);
                     this.plugin.settings.altKeyBehavior = value;
-                    this.plugin.saveSettings();
+                    this.plugin.debouncedSaveSettings();
                 });
         });
 

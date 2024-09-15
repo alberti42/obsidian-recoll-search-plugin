@@ -16,6 +16,7 @@ export interface RecollSearchSettings {
 export interface RecollSearchLocalSettings {
     pythonPath: string;
     recollDataDir: string;
+    recollConfDir: string;
     pathExtensions: string[];
     recollindexCmd: string;
     recollqCmd: string;

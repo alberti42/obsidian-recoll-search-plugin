@@ -17,6 +17,7 @@ export const DEFAULT_SETTINGS: RecollSearchSettings = {
 export const DEFAULT_LOCAL_SETTINGS: RecollSearchLocalSettings = {
     pythonPath: '',
     recollDataDir: '',
+    recollConfDir: '',
     pathExtensions: [''],
     recollindexCmd: '',
     recollqCmd: '',    

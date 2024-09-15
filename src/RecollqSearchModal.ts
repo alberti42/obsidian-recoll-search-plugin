@@ -168,7 +168,7 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
     private toggleFilter() {
         // Cycle through the filter types
         this.plugin.settings.filterType = (this.plugin.settings.filterType + 1) % 3;
-        this.plugin.saveSettings;
+        this.plugin.debouncedSaveSettings;
 
         if (!this.filterEl) return;
 
