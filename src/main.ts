@@ -28,25 +28,12 @@ import { sep, posix } from "path"
 
 import { RecollqSearchModal } from "RecollqSearchModal";
 
-// Helper function to check if a node is an Element
-function isElement(node: Node): node is Element {
-    return node.nodeType === Node.ELEMENT_NODE;
-}
-
-function isHTMLElement(node: Node): node is HTMLElement {
-    return node instanceof HTMLElement ;
-}
-
 // Main plugin class
 export default class RecollSearch extends Plugin {
 	settings: RecollSearchSettings = { ...DEFAULT_SETTINGS };
     localSettings: RecollSearchLocalSettings = { ...DEFAULT_LOCAL_SETTINGS };
     MACaddress!: string; // initialized by `this.loadSettings()`
     
-    private createEventRef: EventRef|null = null;
-    private modifyEventRef: EventRef|null = null;
-    private deleteEventRef: EventRef|null = null;
-
     private exitListener: NodeJS.ExitListener | null = null;
     private sigintListener: ((...args: any[]) => void) | null = null;
     private sigtermListener: ((...args: any[]) => void) | null = null;
@@ -294,8 +281,6 @@ class RecollSearchSettingTab extends PluginSettingTab {
                 text.setPlaceholder('/usr/local/bin/recollindex')
                 .setValue(this.plugin.localSettings.recollindexCmd)
                 .onChange(async (value) => {
-                    const parsedPath = parseFilePath(value);
-
                     // when the field is empty, we don't consider it as an error,
                     // but simply as no input was provided yet
                     const isEmpty = value === "";
@@ -341,8 +326,6 @@ class RecollSearchSettingTab extends PluginSettingTab {
                 text.setPlaceholder('/usr/local/bin/recollq')
                 .setValue(this.plugin.localSettings.recollqCmd)
                 .onChange(async (value) => {
-                     const parsedPath = parseFilePath(value);
-
                     // when the field is empty, we don't consider it as an error,
                     // but simply as no input was provided yet
                     const isEmpty = value === "";
@@ -395,9 +378,6 @@ class RecollSearchSettingTab extends PluginSettingTab {
                 text.setPlaceholder('site-packages')
                 .setValue(this.plugin.localSettings.pythonPath)
                 .onChange(async (value) => {
-                    // Remove any previous warning text
-                    const parsedPath = parseFilePath(value);
-
                     // when the field is empty, we don't consider it as an error,
                     // but simply as no input was provided yet
                     const isEmpty = value === "";
@@ -442,9 +422,6 @@ class RecollSearchSettingTab extends PluginSettingTab {
                 text.setPlaceholder('/usr/local/share/recoll')
                 .setValue(this.plugin.localSettings.recollDataDir)
                 .onChange(async (value) => {
-                    // Remove any previous warning text
-                    const parsedPath = parseFilePath(value);
-
                     // when the field is empty, we don't consider it as an error,
                     // but simply as no input was provided yet
                     const isEmpty = value === "";
@@ -489,9 +466,6 @@ class RecollSearchSettingTab extends PluginSettingTab {
                 text.setPlaceholder('/usr/local/share/recoll')
                 .setValue(this.plugin.localSettings.recollConfDir)
                 .onChange(async (value) => {
-                    // Remove any previous warning text
-                    const parsedPath = parseFilePath(value);
-
                     // when the field is empty, we don't consider it as an error,
                     // but simply as no input was provided yet
                     const isEmpty = value === "";
@@ -614,6 +588,65 @@ class RecollSearchSettingTab extends PluginSettingTab {
         });
 
 
+        const create_label_setting = new Setting(containerEl)
+            .setName("Creation date label")
+            .setDesc("Enter the name of the property used in the frontmatter of your MarkDown notes to store the creation date. \
+                If this field is left empty, the file's creation date is used instead, regardless of the date provided in the frontmatter of your note.");
+
+        let create_label_text:TextComponent;
+        create_label_setting.addText(text => {
+                create_label_text = text;
+                text.setPlaceholder('created')
+                .setValue(this.plugin.settings.createdLabel)
+                .onChange(async (value) => {
+                    if(value.trim()==="") value = "";
+                    this.plugin.settings.createdLabel = value;
+                    await this.plugin.debouncedSaveSettings();
+                })
+            });
+
+        create_label_setting.addExtraButton((button) => {
+            button
+                .setIcon("reset")
+                .setTooltip("Reset to default value")
+                .onClick(() => {
+                    const value = DEFAULT_SETTINGS.createdLabel;
+                    create_label_text.setValue(value);
+                    this.plugin.settings.createdLabel = value;
+                    this.plugin.debouncedSaveSettings();
+                });
+        });
+
+
+        const modify_label_setting = new Setting(containerEl)
+            .setName("Modification date label")
+            .setDesc("Enter the name of the property used in the frontmatter of your MarkDown notes to store the modification date. \
+                If this field is left empty, the file's modification date is used instead, regardless of the date provided in the frontmatter of your note.");
+
+        let modify_label_text:TextComponent;
+        modify_label_setting.addText(text => {
+                modify_label_text = text;
+                text.setPlaceholder('modified')
+                .setValue(this.plugin.settings.modifiedLabel)
+                .onChange(async (value) => {
+                    if(value.trim()==="") value = "";
+                    this.plugin.settings.modifiedLabel = value;
+                    await this.plugin.debouncedSaveSettings();
+                })
+            });
+
+        modify_label_setting.addExtraButton((button) => {
+            button
+                .setIcon("reset")
+                .setTooltip("Reset to default value")
+                .onClick(() => {
+                    const value = DEFAULT_SETTINGS.modifiedLabel;
+                    modify_label_text.setValue(value);
+                    this.plugin.settings.modifiedLabel = value;
+                    this.plugin.debouncedSaveSettings();
+                });
+        });
+
 
         // let debouncing_time_warningEl:HTMLElement;
         // const debouncing_time_setting = new Setting(containerEl)
@@ -700,6 +733,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
                     this.plugin.debouncedSaveSettings();
                 });
         });
+
 
 
 	}

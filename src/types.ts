@@ -6,6 +6,8 @@ export interface RecollSearchSettings {
     debug: boolean;
     dateFormat: string;
     filterType: FilterType;
+    createdLabel: string;
+    modifiedLabel: string;
     altKeyBehavior: AltKeyBehavior;
     debouncingTime: number; // debouncing time in ms before running recollindex 
     compatibility: "1.0";

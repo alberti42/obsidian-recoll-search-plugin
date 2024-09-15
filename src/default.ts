@@ -6,6 +6,8 @@ import { FilterType, AltKeyBehavior, RecollSearchLocalSettings, RecollSearchSett
 export const DEFAULT_SETTINGS: RecollSearchSettings = {
     debug: false,
     dateFormat: 'YYYY_MM_DDTHH_mm_ss',
+    createdLabel: 'created',
+    modifiedLabel: 'modified',
     filterType: FilterType.MARKDOWN,
     altKeyBehavior: AltKeyBehavior.TAB,
     localSettings: {},

@@ -139,3 +139,12 @@ export function debounceFactoryWithWaitMechanism<F extends (...args: never[]) =>
         }
     };
 }
+
+// Helper function to check if a node is an Element
+export function isElement(node: Node): node is Element {
+    return node.nodeType === Node.ELEMENT_NODE;
+}
+
+export function isHTMLElement(node: Node): node is HTMLElement {
+    return node instanceof HTMLElement ;
+}
