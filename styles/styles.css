@@ -1,20 +1,29 @@
 /* styles.css */
 
+:root {
+	--recoll-search-date: 20ch;
+}
+
 .recoll-search {
 	width: 100%;
 	display: flex;
 	flex-direction: column; /* Stack items vertically */
 }
 
-.recoll-search .prompt-labels {
-	padding: var(--size-4-3);
-	margin: 0;
+.recoll-search > .prompt-header {
+	overflow: visible;
+	border-bottom: 1px solid var(--background-secondary);
+	padding-top: var(--size-4-1);
+	padding-bottom: var(--size-4-1);
 }
 
-.recoll-search .prompt-labels div {
-    margin: 0;
-    white-space: pre-wrap;
-    border-radius: var(--radius-s);
+/*
+.recoll-search > .prompt-header + .prompt-results {
+	padding-top: var(--size-4-2);
+}
+*/
+
+.recoll-search .prompt-header div {
     font-weight: var(--font-semibold);
 }
 
@@ -25,37 +34,37 @@
 	gap: var(--size-4-2); /* Space between columns */
 }
 
-.recoll-search-name {
-	flex-grow: 3;
-	min-width: 50%; /* Ensure name column takes up a minimum width */
-	white-space: nowrap; /* Prevent text wrapping */
-	text-overflow: ellipsis; /* Show ellipsis for overflowed text */
-	overflow: hidden;
-}
-
-.recoll-search-created,
-.recoll-search-modified,
-.recoll-search-type,
-.recoll-search-relevance {
-	flex-grow: 0;
-	flex-basis: 15%;
+.recoll-search-item > div {
+	font-family: monospace; /* Use a monospace font */
 	text-align: left;
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	overflow: hidden;
 }
 
-.recoll-search-relevance {
-	flex-basis: 6%;
+.recoll-search-score {
+	flex: 0 0 5ch;
+}
+
+.recoll-search-name {
+	flex: 30 2 20ch;
+}
+
+.recoll-search-created,
+.recoll-search-modified {
+	flex: 3 0 var(--recoll-search-date);
+}
+
+.recoll-search-type {
+	flex: 1 1 20ch;
 }
 
 .recoll-search-tags {
-	flex-grow: 0;
-	flex-basis: 20%; /* Set a fixed width for tags */
+	flex: 10 1 20ch;
 	display: flex;
 	gap: var(--size-4-1); /* Space between tags */
 	align-items: center;
-	justify-content: flex-end; /* Align tags to the right */
+	justify-content: flex-start; /* Align tags to the right */
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	overflow: hidden;

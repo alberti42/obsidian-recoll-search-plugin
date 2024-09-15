@@ -81,7 +81,7 @@ export function delay(ms: number) {
 
 export function formatUnixTime(unixTime: number, dateFormat: string): string {
     // Convert Unix time to a moment object and format it
-    const formattedDate = window.moment(unixTime * 1000).format(dateFormat);
+    const formattedDate = window.moment(unixTime).format(dateFormat);
     return formattedDate;
 }
 

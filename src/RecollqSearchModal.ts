@@ -4,11 +4,12 @@ import RecollSearch from 'main';
 import { formatUnixTime } from 'utils';
 import { FilterType, AltKeyBehavior } from 'types';
 import { DEFAULT_SETTINGS } from 'default';
+import { create } from 'domain';
 
 // Interface for Recoll result
 interface RecollResult {
     fileName: string;
-    filePath: string;
+    file: TFile;
     fileType: string;
     createdDate: string;
     modifiedDate: string;
@@ -22,12 +23,27 @@ const filter_msg = {
     2 : 'all files and dirs' // ANY = 2
 };
 
+// function get_em_width(parentEl:HTMLElement):number {
+//     const tempElement1 = createDiv({cls:'suggestion-item'});
+//     const tempElement2 = createDiv({cls:'recoll-search-item'});
+//     const tempElement3 = createDiv();
+//     tempElement3.textContent = 'MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM';  // 40 em
+//     tempElement2.appendChild(tempElement3);
+//     tempElement1.appendChild(tempElement2);
+//     parentEl.appendChild(tempElement1); // Append it to the parent element to render it
+//     const width = tempElement3.offsetWidth; // Get the width of the rendered text
+//     parentEl.removeChild(tempElement1); // Remove the temporary element
+//     return width/40.0; // Return the computed width for 1 em
+// }
+
 export class RecollqSearchModal extends SuggestModal<RecollResult> {
     private recollindex_cmd: string;
     private vaultPath: string;
-    private labelsEl: HTMLElement | null = null;
+    private vaultPath_length: number;
+    private headerEl: HTMLElement | null = null;
     private filterEl: HTMLElement | null = null;
-
+    private datetime_width_px: number = 0; // store the width in px of the date-time column
+    
     constructor(app: App, private plugin: RecollSearch) {
         super(app);
         this.setPlaceholder(`Search for files ...`);
@@ -36,6 +52,7 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
         // Store the address to recollq cmd
         this.recollindex_cmd = this.plugin.localSettings.recollqCmd;
         this.vaultPath = this.plugin.getVaultPath();
+        this.vaultPath_length = this.vaultPath.length;
     }
 
     getInstructionsBasedOnOS(): { command: string, purpose: string } [] {
@@ -103,6 +120,20 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
                     return reject(stderr);
                 }
 
+                // Get all files in the vault
+                // Iterate over fileMap (which is a dictionary of file paths to TAbstractFile instances)
+                // Object.keys(this.plugin.app.vault.fileMap).forEach((key: string) => {
+                //     const file = this.plugin.app.vault.fileMap[key];
+                //     if (file instanceof TFile) {
+
+                //         if(file.path.includes('05 Teaching/E4 Atom und Molekülphysik/2024-04-23 Vorlesungsmitschriften (attachments)/10 OBG Gleichgewichtslösung (22.05.2024).pdf')){
+                //             console.log(`KEY: ${key}`);
+                //             console.log(key==='05 Teaching/E4 Atom und Molekülphysik/2024-04-23 Vorlesungsmitschriften (attachments)/10 OBG Gleichgewichtslösung (22.05.2024).pdf');
+                //             console.log(file);
+                //         }
+                //     }
+                // });
+
                 const results: RecollResult[] = [];
 
                 // Process the output from recollq
@@ -111,12 +142,41 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
                     const decodedFields = line.split(' ').map((field:string) => Buffer.from(field, 'base64').toString('utf-8'));
                     // Destructure the decoded fields into individual variables
                     const [url, mtype, created, modified, tags, relevance] = decodedFields;
+
+                    const filePath = url.normalize("NFC").slice(7);  // remove the prefix `file://`
+
+                    if(!filePath.startsWith(this.vaultPath)) {
+                        // skip this file that is not in the vault
+                        console.error(`Error: filepath '${filePath}' does not start with '${this.vaultPath}'`);
+                        continue;
+                    }
+                    
+                    // Remove the vault path prefix
+                    const relativeFilePath = filePath.slice(this.vaultPath_length+1) // +1 to remove the leading '/'
+
+                    // Find the file in the vault using Obsidian's API
+                    const file = this.app.vault.getAbstractFileByPath(relativeFilePath);
+
+                    if (!(file instanceof TFile)) {
+                        // skip this file that is not in the vault
+                        console.error(`Error: file '${filePath}' is not found in the vault under '${this.vaultPath}'`);                        
+                        continue;
+                    }
+
+                    const created_formatted = formatUnixTime(
+                        created === "" ? file.stat.ctime : parseInt(created,10)*1000,
+                        this.plugin.settings.momentjsFormat);
+
+                    const modified_formatted = formatUnixTime(
+                        created === "" ? file.stat.mtime : parseInt(modified,10)*1000,
+                        this.plugin.settings.momentjsFormat);
+
                     results.push({
                         fileName: url.split('/').pop() || '',
-                        filePath: url,
+                        file,
                         fileType: mtype,
-                        createdDate:  created === "" ? "" : formatUnixTime(parseInt(created,10),this.plugin.settings.momentjsFormat),
-                        modifiedDate: modified === "" ? "" : formatUnixTime(parseInt(modified,10),this.plugin.settings.momentjsFormat),
+                        createdDate:  created_formatted,
+                        modifiedDate: modified_formatted,
                         tags: tags==='' ? [] : tags.split(','),
                         relevance: relevance
                     });
@@ -135,7 +195,7 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
     // Fetch real suggestions using recollq
     async getSuggestions(input_query: string): Promise<RecollResult[]> {
         if(input_query.trim()==='') {
-            if(this.labelsEl) this.labelsEl.style.display = 'none';
+            if(this.headerEl) this.headerEl.style.display = 'none';
             return [] as RecollResult[];
         }
 
@@ -154,14 +214,14 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
             // Call recollq with the user's query
             const results = await this.executeRecollq(query.join(" "));
             if(results.length > 0) {
-                if(this.labelsEl) this.labelsEl.style.display = '';
+                if(this.headerEl) this.headerEl.style.display = '';
             } else {
-                if(this.labelsEl) this.labelsEl.style.display = 'none';
+                if(this.headerEl) this.headerEl.style.display = 'none';
             }
             return results;
         } catch (error) {
             // Recollq failed
-            if(this.labelsEl) this.labelsEl.style.display = 'none';
+            if(this.headerEl) this.headerEl.style.display = 'none';
             return [] as RecollResult[];
         }
     }
@@ -169,7 +229,7 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
     private toggleFilter() {
         // Cycle through the filter types
         this.plugin.settings.filterType = (this.plugin.settings.filterType + 1) % 3;
-        this.plugin.debouncedSaveSettings;
+        this.plugin.debouncedSaveSettings();
 
         if (!this.filterEl) return;
 
@@ -180,64 +240,48 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
     }
 
     private handleKeyDown = (evt: KeyboardEvent) => {
-    // Check if the Tab key is pressed
-    if (evt.key === 'Tab') {
-        evt.preventDefault(); // Prevent the default tab behavior (focus change)
-        
-        this.toggleFilter();
+        // Check if the Tab key is pressed
+        if (evt.key === 'Tab') {
+            evt.preventDefault(); // Prevent the default tab behavior (focus change)
+            
+            this.toggleFilter();
+        }
+
+        // evt.isComposing determines whether the event is part of a key composition
+        if (evt.key === 'Enter' && !evt.isComposing && evt.altKey) {
+            this.chooser.useSelectedItem(evt);
+        }
     }
 
-    // evt.isComposing determines whether the event is part of a key composition
-    if (evt.key === 'Enter' && !evt.isComposing && evt.altKey) {
-        this.chooser.useSelectedItem(evt);
-    }
-}
-
-    createLabels() {
-        const labels = document.createElement('div');
-        labels.classList.add('prompt-labels');
-
-        const item = document.createElement('div');
-        item.classList.add('recoll-search-item');
-
-        const relevanceEl = document.createElement('div');
-        relevanceEl.textContent = "Relevance";
-        relevanceEl.classList.add('recoll-search-relevance');
-
-        const nameEl = document.createElement('div');
-        nameEl.textContent = "Filename";
-        nameEl.classList.add('recoll-search-name');
-
-        const createdEl = document.createElement('div');
-        createdEl.textContent = "Created";
-        createdEl.classList.add('recoll-search-created');
-
-        const modifiedDate = document.createElement('div');
-        modifiedDate.textContent = "Modified";
-        modifiedDate.classList.add('recoll-search-modified');
-
-        const typeEl = document.createElement('div');
-        typeEl.textContent = "Type";
-        typeEl.classList.add('recoll-search-type');
+    private createHeader() {
+        const headerEl = createDiv({cls:['prompt-results','prompt-header']});
+        const suggestion_item = createDiv({cls:'suggestion-item'});
+        const search_item = createDiv({cls:'recoll-search-item'});
         
-        const tagsEl = document.createElement('div');
-        tagsEl.textContent = "Tags";
-        tagsEl.classList.add('recoll-search-tags');
-
-        item.appendChild(relevanceEl);
-        item.appendChild(nameEl);
-        item.appendChild(createdEl);
-        item.appendChild(modifiedDate);
-        item.appendChild(typeEl);
-        item.appendChild(tagsEl);
-
-        labels.appendChild(item);
-
-        labels.style.display = 'none';
+        const relevanceEl = createDiv({text:'Score',cls:'recoll-search-score'});
+        const nameEl = createDiv({text:'Filename',cls:'recoll-search-name'});        
+        const createdEl = createDiv({text:'Created',cls:'recoll-search-created'});
+        const modifiedDate = createDiv({text:'Modified',cls:'recoll-search-modified'});
+        const typeEl = createDiv({text:'Type',cls:'recoll-search-type'});
+        const tagsEl = createDiv({text:'Tags',cls:'recoll-search-tags'});
         
-        this.modalEl.insertBefore(labels,this.resultContainerEl);
+        search_item.appendChild(relevanceEl);
+        search_item.appendChild(nameEl);
+        search_item.appendChild(createdEl);
+        search_item.appendChild(modifiedDate);
+        search_item.appendChild(typeEl);
+        search_item.appendChild(tagsEl);
 
-        this.labelsEl = labels;
+        suggestion_item.appendChild(search_item);
+        headerEl.appendChild(suggestion_item);
+
+        headerEl.style.display = 'none';
+
+        console.log(headerEl);
+        
+        this.modalEl.insertBefore(headerEl,this.resultContainerEl);
+        
+        this.headerEl = headerEl;
     }
 
     onOpen() {
@@ -264,7 +308,12 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
             }            
         }
 
-        this.createLabels();
+        // Create header for the table of results
+        this.createHeader();
+
+        // Set the width of the date fields computed using the date format provided by the user
+        const mock_date = formatUnixTime(1726414358942,this.plugin.settings.momentjsFormat);
+        document.documentElement.style.setProperty('--recoll-search-date', `${mock_date.length}ch`);
     }
 
     onClose() {
@@ -281,7 +330,7 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
 
         const relevanceEl = document.createElement('div');
         relevanceEl.textContent = result.relevance;
-        relevanceEl.classList.add('recoll-search-relevance');
+        relevanceEl.classList.add('recoll-search-score');
 
         const nameEl = document.createElement('div');
         nameEl.textContent = result.fileName;
@@ -292,7 +341,7 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
         createdEl.classList.add('recoll-search-created');
 
         const modifiedDate = document.createElement('div');
-        modifiedDate.textContent = result.createdDate;
+        modifiedDate.textContent = result.modifiedDate;
         modifiedDate.classList.add('recoll-search-modified');
 
         const typeEl = document.createElement('div');
@@ -333,27 +382,12 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
         suggestionContainer.appendChild(tagsEl);
 
         el.appendChild(suggestionContainer);
-        // el.createEl("small", { text: `Path: ${result.filePath}, Type: ${result.fileType}` });
     }
 
     // Perform action on the selected suggestion
     onChooseSuggestion(result: RecollResult, evt: MouseEvent | KeyboardEvent) {
         const shouldCreateNewLeaf = evt.altKey; // alt key pressed
 
-        const absolutePath = result.filePath.slice(7);  // remove the prefix 'file://'
-
-        // Remove the vault path prefix
-        const relativePath = absolutePath.startsWith(this.vaultPath)
-            ? absolutePath.slice(this.vaultPath.length+1) // +1 to remove the leading '/'
-            : absolutePath;
-
-        // Find the file in the vault using Obsidian's API
-        const file = this.app.vault.getAbstractFileByPath(relativePath);
-
-        if (!(file instanceof TFile)) {
-            new Notice(`File not found in vault: ${result.fileName}`, 5000);
-            return;
-        }
         let leaf = this.app.workspace.getMostRecentLeaf();
         if (shouldCreateNewLeaf || (leaf && leaf.getViewState().pinned)) {
             let default_behavior = DEFAULT_SETTINGS.altKeyBehavior;
@@ -372,7 +406,8 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
         }
         if (leaf) {
             // this.app.workspace.openLinkText(relativePath, '', true);
-            leaf.openFile(file);
+            console.log(result.file);
+            leaf.openFile(result.file);
         } else {
             console.error("Error in creating a leaf for the file to be opened:", result.fileName);
         }
