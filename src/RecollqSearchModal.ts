@@ -277,8 +277,6 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
 
         headerEl.style.display = 'none';
 
-        console.log(headerEl);
-        
         this.modalEl.insertBefore(headerEl,this.resultContainerEl);
         
         this.headerEl = headerEl;
@@ -406,7 +404,6 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
         }
         if (leaf) {
             // this.app.workspace.openLinkText(relativePath, '', true);
-            console.log(result.file);
             leaf.openFile(result.file);
         } else {
             console.error("Error in creating a leaf for the file to be opened:", result.fileName);
