@@ -3,20 +3,14 @@
 // Import necessary Obsidian API components
 import {
 	App,
-	MarkdownView,
-	MarkdownFileInfo,
-	Editor,
-	Notice,
 	FileSystemAdapter,
 	Plugin,
 	PluginSettingTab,
 	Setting,
-	TAbstractFile,
 	Platform,
 	PluginManifest,
 	TextComponent,
-	normalizePath,
-    ToggleComponent,
+	ToggleComponent,
     EventRef,
     DropdownComponent,
 } from "obsidian";
@@ -28,7 +22,6 @@ import { monkeyPatchConsole, unpatchConsole } from "patchConsole";
 
 import { isRecollindexRunning, runRecollIndex, setPluginReference, stopRecollIndex, updateProcessLogging } from "recoll";
 import { doesDirectoryExists, doesFileExists, getMACAddress, joinPaths, parseFilePath, debounceFactoryWithWaitMechanism } from "utils";
-import { getMaxListeners } from "process";
 
 import { sep, posix } from "path"
 
@@ -145,6 +138,9 @@ export default class RecollSearch extends Plugin {
 	onunload() {
         stopRecollIndex();
         this.unregisterEvents();
+
+        // unpatch console
+        unpatchConsole();
 	}
 
     onquit() {

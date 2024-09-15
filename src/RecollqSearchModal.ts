@@ -79,7 +79,8 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
             // see the field names. Use -F '' to output all fields, but you probably
             // also want option -N in this case.
             // -S fld : sort by field <fld>
-            const recollq = spawn(this.recollindex_cmd, ['-F', 'url mtype created modified tags relevancyrating', '-S', 'relevancyrating', query]);
+            // -c <configdir> : specify configuration directory, overriding $RECOLL_CONFDIR.
+            const recollq = spawn(this.recollindex_cmd, ['-c', this.plugin.localSettings.recollConfDir, '-F', 'url mtype created modified tags relevancyrating', '-S', 'relevancyrating', query]);
 
             let stdout = '';
             let stderr = '';

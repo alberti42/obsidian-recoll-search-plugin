@@ -1,11 +1,8 @@
 // recoll.ts
 
-import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
-import { error } from 'console';
-import * as fs from 'fs';
+import { spawn } from 'child_process';
 import RecollSearch from 'main';
 import { Notice } from 'obsidian';
-import { removeListener } from 'process';
 import { RecollSearchLocalSettings, RecollSearchSettings } from 'types';
 import { delay } from 'utils';
 
@@ -26,8 +23,6 @@ let plugin:RecollSearch;
 let recollindex_PID:number|undefined = undefined;
 let numExecAttemptsMade:number = 0;
 const maxNumExecAttemptsMade:number = 3;
-let successTimer:ReturnType<typeof setTimeout>;
-let keepItAlive:boolean; // whether to attempt restarting recollindex in case it crashes
 let queue: Promise<void> = Promise.resolve(); // use to avoid running `runRecollIndex` multiple times in parallel; initialized to be a resolved promise
 
 export function setPluginReference(p:RecollSearch) {
@@ -212,7 +207,8 @@ async function queuedRunRecollIndex(settings:Omit<RecollSearchSettings, 'localSe
     // -O:  similar to -D but it shutdown the recollindex process if the process gets detached from its parent
     // -w0: start indexing with 0 second delay
     // -x:  process will stay alive even if it cannot connect to the X11 server, which is here not needed
-    recollindexProcess = spawn(recollindex_cmd, ['-m', '-O', '-w0', '-x'], {
+    // -c <configdir> : specify configuration directory, overriding $RECOLL_CONFDIR.
+    recollindexProcess = spawn(recollindex_cmd, ['-m', '-O', '-w0', '-x', '-c', localSettings.recollConfDir], {
         env: {
             ...process.env,
             PATH: `${pathExtension}:${process.env.PATH}`, // Ensure Homebrew Python and binaries are in the PATH
@@ -255,7 +251,7 @@ async function queuedRunRecollIndex(settings:Omit<RecollSearchSettings, 'localSe
     }
 
     // We wait for 30 seconds. If no error is detected, we reset `numExecAttemptsMade`
-    successTimer = setTimeout(()=>{
+    setTimeout(()=>{
         numExecAttemptsMade = 0;
     }, 30*1000);
 }
