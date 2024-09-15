@@ -5,7 +5,8 @@ import { FilterType, AltKeyBehavior, RecollSearchLocalSettings, RecollSearchSett
 // Default plugin settings
 export const DEFAULT_SETTINGS: RecollSearchSettings = {
     debug: false,
-    dateFormat: 'YYYY_MM_DDTHH_mm_ss',
+    momentjsFormat: 'YYYY_MM_DDTHH_mm_ss',
+    datetimeFormat: '%Y_%m_%dT%H_%M_%S',
     createdLabel: 'created',
     modifiedLabel: 'modified',
     filterType: FilterType.MARKDOWN,

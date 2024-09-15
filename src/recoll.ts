@@ -66,7 +66,7 @@ function waitForProcessToExit(pid: number, timeout = 1000): Promise<void> {
     });
 }
 
-let stderrListener:((data:unknown)=>void) | null = null;
+let stderrListener:((data:Buffer)=>void) | null = null;
 let errorListener:((error:Error)=>void) | null = null;
 let closeListener:((code: number | null, signal: NodeJS.Signals | null)=>void) | null = null;
 
@@ -173,7 +173,7 @@ async function safeProcessTermination(): Promise<void> {
     recollindex_PID = undefined
 }
 
-async function queuedRunRecollIndex(settings:Omit<RecollSearchSettings, 'localSettings'>,localSettings:RecollSearchLocalSettings) {
+async function queuedRunRecollIndex(settings:Omit<RecollSearchSettings, 'localSettings'>,localSettings:RecollSearchLocalSettings,recollindex_extra_options:string[]) {
     // Remove listeners if these were set
     removeListeners();
 
@@ -204,18 +204,26 @@ async function queuedRunRecollIndex(settings:Omit<RecollSearchSettings, 'localSe
     // -w0: start indexing with 0 second delay
     // -x:  process will stay alive even if it cannot connect to the X11 server, which is here not needed
     // -c <configdir> : specify configuration directory, overriding $RECOLL_CONFDIR.
-    recollindexProcess = spawn(recollindex_cmd, ['-m', '-O', '-w0', '-x', '-c', localSettings.recollConfDir], {
-        env: {
-            ...process.env,
-            RCLMD_CREATED: settings.createdLabel,
-            RCLMD_MODIFIED: settings.modifiedLabel,
-            PATH: `${pathExtension}:${process.env.PATH}`, // Ensure Homebrew Python and binaries are in the PATH
-            PYTHONPATH: pythonPath, // Add the path to custom Python packages
-            RECOLL_DATADIR: recollDataDir,  // Add the path to recoll's share folder
-        },
-        detached: true, // Allow the process to run independently of its parent
-        stdio: ['ignore','ignore', stdErrOption], // Ignore stdin, but allow stderr for logging
-    });
+    // -z : reset database before starting indexing
+    recollindexProcess = spawn(
+            recollindex_cmd,
+            [
+                ...['-m', '-O', '-w0', '-x', '-c', localSettings.recollConfDir],
+                ...recollindex_extra_options
+            ], 
+            {
+                env: {
+                    ...process.env,
+                    RCLMD_CREATED: settings.createdLabel,
+                    RCLMD_MODIFIED: settings.modifiedLabel,
+                    RCLMD_DATEFORMAT: settings.datetimeFormat,
+                    PATH: `${pathExtension}:${process.env.PATH}`, // Ensure Homebrew Python and binaries are in the PATH
+                    PYTHONPATH: pythonPath, // Add the path to custom Python packages
+                    RECOLL_DATADIR: recollDataDir,  // Add the path to recoll's share folder
+                },
+                detached: true, // Allow the process to run independently of its parent
+                stdio: ['ignore','ignore', stdErrOption], // Ignore stdin, but allow stderr for logging
+            });
     
     errorListener =  (error:Error) => {
         attemptNewStart(`recollindex process unexpectedly exited: ${error.message}`);
@@ -225,13 +233,13 @@ async function queuedRunRecollIndex(settings:Omit<RecollSearchSettings, 'localSe
     // Set up the listeners for the running process
     if(recollindexProcess && recollindexProcess.pid) {
         if(settings.debug) {
-            stderrListener = (data:unknown) => {
+            stderrListener = (data:Buffer) => {
                 // recoll surprisingly uses stderr for printing ordinary logs
                 // thus, we redirect stderr to the ordinary console
                 // this property can be changed in recoll.conf, but I'd rather
                 // preserve in recoll.conf the standard behavior, i.e., stderr,
                 // because people are familiar with it.
-                console.log(`recollindex stderr:\n${data}`);
+                console.log(data.toString('utf8'));
             };
             if(recollindexProcess.stderr) recollindexProcess.stderr.on('data',stderrListener)
         };
@@ -273,12 +281,12 @@ If you have not already done so, switch to debug mode, start the process manuall
     }  
 }
 
-export async function runRecollIndex(): Promise<void> {
+export async function runRecollIndex(recollindex_extra_options:string[] = []): Promise<void> {
     // For efficiency remove local settings from the copy
     const { localSettings:_, ...settingsWithoutLocalSettings } = plugin.settings;
     
     // Update the queue to include the current execution
-    queue = queue.then(()=>queuedRunRecollIndex(structuredClone(settingsWithoutLocalSettings),structuredClone(plugin.localSettings)));
+    queue = queue.then(()=>queuedRunRecollIndex(structuredClone(settingsWithoutLocalSettings),structuredClone(plugin.localSettings),recollindex_extra_options));
 
     // Wait for the current execution to finish before allowing the next one
     await queue;

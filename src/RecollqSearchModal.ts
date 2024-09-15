@@ -115,8 +115,8 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
                         fileName: url.split('/').pop() || '',
                         filePath: url,
                         fileType: mtype,
-                        createdDate:  created === "" ? "" : formatUnixTime(parseInt(created,10),this.plugin.settings.dateFormat),
-                        modifiedDate: modified === "" ? "" : formatUnixTime(parseInt(modified,10),this.plugin.settings.dateFormat),
+                        createdDate:  created === "" ? "" : formatUnixTime(parseInt(created,10),this.plugin.settings.momentjsFormat),
+                        modifiedDate: modified === "" ? "" : formatUnixTime(parseInt(modified,10),this.plugin.settings.momentjsFormat),
                         tags: tags==='' ? [] : tags.split(','),
                         relevance: relevance
                     });

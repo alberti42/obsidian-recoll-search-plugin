@@ -22,7 +22,7 @@ import { monkeyPatchConsole, unpatchConsole } from "patchConsole";
 
 // import { isRecollindexRunning, runRecollIndex, setPluginReference, stopRecollIndex, updateProcessLogging } from "recoll";
 import * as recoll from "recoll"
-import { doesDirectoryExists, doesFileExists, getMACAddress, joinPaths, parseFilePath, debounceFactoryWithWaitMechanism } from "utils";
+import { doesDirectoryExists, doesFileExists, getMACAddress, joinPaths, parseFilePath, debounceFactoryWithWaitMechanism, momentJsToDatetime } from "utils";
 
 import { sep, posix } from "path"
 
@@ -129,13 +129,22 @@ export default class RecollSearch extends Plugin {
                 id: 'recollindex-stop',
                 name: 'Gracefully stop recollindex',
                 callback: async () => {
-                    recoll.runRecollIndex();
+                    recoll.stopRecollIndex();
+                }
+            });
+
+            this.addCommand({
+                id: 'recollindex-reindex',
+                name: 'Force reindex (recollindex -z option)',
+                callback: async () => {
+                    recoll.runRecollIndex(["-z"]);
                 }
             });
         } else {
             // Safely remove debug commands
             this.app.commands.removeCommand(`${this.manifest.id}:recollindex-restart`);
             this.app.commands.removeCommand(`${this.manifest.id}:recollindex-stop`);
+            this.app.commands.removeCommand(`${this.manifest.id}:recollindex-reindex`);
         }
     }
 
@@ -573,10 +582,10 @@ class RecollSearchSettingTab extends PluginSettingTab {
 
         new Setting(containerEl).setName('Indexing of MarkDown notes').setHeading();
 
-        const date_format_setting = new Setting(containerEl)
-            .setName('Date format used in frontmatter:')
+        const momentjs_format_setting = new Setting(containerEl)
+            .setName('Date format used in frontmatter (Javascript momentjs):')
             .setDesc(createFragment((frag) => {
-                frag.appendText('Choose the date format that is used in the frontmatter of MarkDown notes. The format is based on ');
+                frag.appendText('Provide the date format that is used in the frontmatter of MarkDown notes. The format is based on ');
                 frag.createEl('a', {
                     href: 'https://momentjscom.readthedocs.io/en/latest/moment/04-displaying/01-format',
                     text: 'momentjs',
@@ -584,28 +593,68 @@ class RecollSearchSettingTab extends PluginSettingTab {
                 frag.appendText(' syntax.');
             }))
 
-        let date_format_text:TextComponent;
-        date_format_setting.addText(text => {
-            date_format_text = text;
+        let momentjs_format_text:TextComponent;
+        momentjs_format_setting.addText(text => {
+            momentjs_format_text = text;
             text.setPlaceholder('Enter date format');
-            text.setValue(this.plugin.settings.dateFormat);
+            text.setValue(this.plugin.settings.momentjsFormat);
             text.onChange(async (value: string) => {
-                this.plugin.settings.dateFormat = value;
+                this.plugin.settings.momentjsFormat = value;
                 this.plugin.debouncedSaveSettings();
             })
         });
 
-        date_format_setting.addExtraButton((button) => {
+        momentjs_format_setting.addExtraButton((button) => {
             button
                 .setIcon("reset")
                 .setTooltip("Reset to default value")
                 .onClick(() => {
-                    const value = DEFAULT_SETTINGS.dateFormat;
-                    date_format_text.setValue(value);
-                    this.plugin.settings.dateFormat = value;
+                    const value = DEFAULT_SETTINGS.momentjsFormat;
+                    momentjs_format_text.setValue(value);
+                    this.plugin.settings.momentjsFormat = value;
                     this.plugin.debouncedSaveSettings();
                 });
         });
+
+        const datetime_format_setting = new Setting(containerEl)
+            .setName('Date format used in frontmatter (Python datetime):')
+            .setDesc(createFragment((frag) => {
+                frag.appendText("Provide the date format that is used in the frontmatter of MarkDown notes. The format is based on Python's ");
+                frag.createEl('a', {
+                    href: 'https://docs.python.org/3/library/datetime.html#format-codes',
+                    text: 'datetime',
+                });
+                frag.appendText(' syntax. If you leave this field empty, an automatic conversion from momentjs to datetime format will be attempted.');
+            }))
+
+        let datetime_format_text:TextComponent;
+        datetime_format_setting.addText(text => {
+            datetime_format_text = text;
+            text.setPlaceholder('Enter date format');
+            text.setValue(this.plugin.settings.datetimeFormat);
+            text.onChange(async (value: string) => {
+                if(value.trim()==="") {
+                    // attempt automatic conversion
+                    value = momentJsToDatetime(momentjs_format_text.getValue());
+                    datetime_format_text.setValue(value);
+                }
+                this.plugin.settings.datetimeFormat = value;
+                this.plugin.debouncedSaveSettings();
+            })
+        });
+
+        datetime_format_setting.addExtraButton((button) => {
+            button
+                .setIcon("reset")
+                .setTooltip("Reset to default value")
+                .onClick(() => {
+                    const value = DEFAULT_SETTINGS.datetimeFormat;
+                    datetime_format_text.setValue(value);
+                    this.plugin.settings.datetimeFormat = value;
+                    this.plugin.debouncedSaveSettings();
+                });
+        });
+
 
 
         const create_label_setting = new Setting(containerEl)
@@ -666,7 +715,6 @@ class RecollSearchSettingTab extends PluginSettingTab {
                     this.plugin.debouncedSaveSettings();
                 });
         });
-
 
         // let debouncing_time_warningEl:HTMLElement;
         // const debouncing_time_setting = new Setting(containerEl)

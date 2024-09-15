@@ -4,7 +4,8 @@ import { DEFAULT_SETTINGS } from "default";
 
 export interface RecollSearchSettings {
     debug: boolean;
-    dateFormat: string;
+    momentjsFormat: string;
+    datetimeFormat: string;
     filterType: FilterType;
     createdLabel: string;
     modifiedLabel: string;
