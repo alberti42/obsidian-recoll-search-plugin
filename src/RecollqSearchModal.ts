@@ -271,7 +271,7 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
         search_item.appendChild(modifiedDate);
         search_item.appendChild(typeEl);
         search_item.appendChild(tagsEl);
-
+        
         suggestion_item.appendChild(search_item);
         headerEl.appendChild(suggestion_item);
 
@@ -306,12 +306,12 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
             }            
         }
 
-        // Create header for the table of results
-        this.createHeader();
-
         // Set the width of the date fields computed using the date format provided by the user
         const mock_date = formatUnixTime(1726414358942,this.plugin.settings.momentjsFormat);
         document.documentElement.style.setProperty('--recoll-search-date', `${mock_date.length}ch`);
+
+        // Create header for the table of results
+        this.createHeader();
     }
 
     onClose() {

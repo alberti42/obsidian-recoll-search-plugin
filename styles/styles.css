@@ -36,6 +36,7 @@
 
 .recoll-search-item > div {
 	font-family: monospace; /* Use a monospace font */
+	font-size: var(--font-small);
 	text-align: left;
 	white-space: nowrap;
 	text-overflow: ellipsis;
