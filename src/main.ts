@@ -149,7 +149,10 @@ export default class RecollSearch extends Plugin {
     }
 
 	onunload() {
+        // stop recollindex
         recoll.stopRecollIndex();
+
+        // remove registered listeners
         this.unregisterEvents();
 
         // unpatch console

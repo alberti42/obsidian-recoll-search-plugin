@@ -104,7 +104,7 @@ export function removeListeners():void {
 }
 
 async function safeProcessTermination(): Promise<void> {
-    if(!recollindex_PID) return;    
+    if(!recollindex_PID) return;
     try {
         // Try to gracefully terminate the existing process
         process.kill(recollindex_PID, 'SIGTERM');
@@ -112,20 +112,19 @@ async function safeProcessTermination(): Promise<void> {
         if(error instanceof Error && 'code' in error && error.code === "ESRCH") {
             // nothing to be done, the process was already
             // dead and we did not need to terminate it
-
         } else { // something else is happening, propagate the error
             throw error;    
         }
     }
-
+    
     // The process has received notification to quit,
-    // but it could take some time. Recollindex is
-    // configured to react within 1000 ms.
-    // To be safe, we take a timeout of 1100 ms.
+    // but it is not quit yet. It can take some time.
+    // Recollindex is configured to react within 2000 ms.
+    // To be safe, we take a timeout of 2100 ms.
     // If it has not exited after this timeoutm, something
     // went wrong. Then a kill command is in order.
     try {
-        await waitForProcessToExit(recollindex_PID,1100);
+        await waitForProcessToExit(recollindex_PID,2100);
         console.log(`Gracefully terminated the existing recollindex process with PID: ${recollindex_PID}.`);
     } catch(errorSigTerm) {
         if(errorSigTerm instanceof TimeoutError) {
@@ -187,8 +186,8 @@ async function queuedRunRecollIndex(settings:Omit<RecollSearchSettings, 'localSe
 
     // Stop the recollindex process if this wsa running.
     // We cannot have two sessions of recollindex runnning in parallel.
-    await safeProcessTermination();    
-
+    await safeProcessTermination();
+    
     // Depending on `plugin.settings.debug` we configure or not the pipe of stderr to the console
     let stdErrOption: 'ignore' | 'pipe';
     if(settings.debug) {
