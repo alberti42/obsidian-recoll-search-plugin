@@ -20,7 +20,8 @@ import { RecollSearchLocalSettings, RecollSearchSettings, AltKeyBehavior } from 
 
 import { monkeyPatchConsole, unpatchConsole } from "patchConsole";
 
-import { isRecollindexRunning, runRecollIndex, setPluginReference, stopRecollIndex, updateProcessLogging } from "recoll";
+// import { isRecollindexRunning, runRecollIndex, setPluginReference, stopRecollIndex, updateProcessLogging } from "recoll";
+import * as recoll from "recoll"
 import { doesDirectoryExists, doesFileExists, getMACAddress, joinPaths, parseFilePath, debounceFactoryWithWaitMechanism } from "utils";
 
 import { sep, posix } from "path"
@@ -42,7 +43,6 @@ export default class RecollSearch extends Plugin {
     localSettings: RecollSearchLocalSettings = { ...DEFAULT_LOCAL_SETTINGS };
     MACaddress!: string; // initialized by `this.loadSettings()`
     
-    private settingsTab: RecollSearchSettingTab;
     private createEventRef: EventRef|null = null;
     private modifyEventRef: EventRef|null = null;
     private deleteEventRef: EventRef|null = null;
@@ -74,17 +74,8 @@ export default class RecollSearch extends Plugin {
         if (!(adapter instanceof FileSystemAdapter)) {
             throw new Error("The vault folder could not be determined.");
         }
-
-		if (process.env.NODE_ENV === "development") {
-            monkeyPatchConsole(this);
-            console.log("Recoll Search: development mode including extra logging and debug features");
-        }
         
-        setPluginReference(this);
-
-        this.loadSettings(); // this sets `this.MACaddress`
-
-		this.settingsTab = new RecollSearchSettingTab(this.app, this);        
+        recoll.setPluginReference(this);	
 	}
 
     // Store the path to the vault
@@ -106,12 +97,19 @@ export default class RecollSearch extends Plugin {
 
 	// Load plugin settings
 	async onload() {
-        this.addSettingTab(this.settingsTab);
-        
-		// console.log('Loaded plugin Recoll Search');
+        // Load settings and set `this.registered_MAC_addresses`
+        await this.loadSettings(); 
 
+        // add setting tab
+        this.addSettingTab(new RecollSearchSettingTab(this.app, this));
+
+       if (process.env.NODE_ENV === "development") {
+            monkeyPatchConsole(this);
+            console.log("Recoll Search: development mode including extra logging and debug features");
+        }
+        
         this.app.workspace.onLayoutReady(() => {
-            runRecollIndex();
+            recoll.runRecollIndex();
         });
 
         // For example, triggering the worker when a command is run:
@@ -119,7 +117,7 @@ export default class RecollSearch extends Plugin {
             id: 'recollindex-restart',
             name: 'Gracefully restart recollindex',
             callback: async () => {
-                runRecollIndex();
+                recoll.runRecollIndex();
             }
         });
 
@@ -133,10 +131,12 @@ export default class RecollSearch extends Plugin {
         });
 
         this.registerEvents();
+
+        // console.log('Loaded plugin Recoll Search');
 	}
 
 	onunload() {
-        stopRecollIndex();
+        recoll.stopRecollIndex();
         this.unregisterEvents();
 
         // unpatch console
@@ -144,19 +144,19 @@ export default class RecollSearch extends Plugin {
 	}
 
     onquit() {
-        stopRecollIndex();
+        recoll.stopRecollIndex();
     }
 
     registerEvents() {
         // Registering the shutdown hooks
         this.exitListener = () => {
-            stopRecollIndex(); // Called when the Node.js process exits normally
+            recoll.stopRecollIndex(); // Called when the Node.js process exits normally
         };
         this.sigintListener = () => {
-            stopRecollIndex();
+            recoll.stopRecollIndex();
         }; // Called when Ctrl+C is pressed
         this.sigtermListener = () => {
-            stopRecollIndex();
+            recoll.stopRecollIndex();
         }; // Called when a termination request is sent to the process
 
         process.on('exit', this.exitListener);
@@ -214,7 +214,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
 
         new Setting(containerEl).setName('Recoll status').setHeading();
 
-        const recollindex_status = isRecollindexRunning();
+        const recollindex_status = recoll.isRecollindexRunning();
         const status_label = recollindex_status ? "running" : "not running"
 
         let status_span: HTMLElement;
@@ -230,7 +230,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
         const updateStatus = async () => {
             if(busy) return;
             busy = true;
-            const recollindex_status = isRecollindexRunning();
+            const recollindex_status = recoll.isRecollindexRunning();
             const status_label = recollindex_status ? "running" : "not running"
             status_span.innerText = status_label;
             if(recollindex_status) {
@@ -648,7 +648,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
             .onChange(async (value: boolean) => {
                 this.plugin.settings.debug = value;
                 this.plugin.debouncedSaveSettings();
-                updateProcessLogging(value);
+                recoll.runRecollIndex();
             })
         });
 

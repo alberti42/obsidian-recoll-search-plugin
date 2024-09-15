@@ -66,11 +66,6 @@ function waitForProcessToExit(pid: number, timeout = 1000): Promise<void> {
     });
 }
 
-export function updateProcessLogging(debug: boolean) {
-    plugin.settings.debug = debug;
-    runRecollIndex();
-}
-
 let stderrListener:((data:unknown)=>void) | null = null;
 let errorListener:((error:Error)=>void) | null = null;
 let closeListener:((code: number | null, signal: NodeJS.Signals | null)=>void) | null = null;
@@ -177,6 +172,7 @@ async function safeProcessTermination(): Promise<void> {
     // and the process recollindex has been successfully terminated.
     recollindex_PID = undefined
 }
+
 async function queuedRunRecollIndex(settings:Omit<RecollSearchSettings, 'localSettings'>,localSettings:RecollSearchLocalSettings) {
     // Remove listeners if these were set
     removeListeners();
@@ -278,7 +274,7 @@ If you have not already done so, switch to debug mode, start the process manuall
 export async function runRecollIndex(): Promise<void> {
     // For efficiency remove local settings from the copy
     const { localSettings:_, ...settingsWithoutLocalSettings } = plugin.settings;
-
+    
     // Update the queue to include the current execution
     queue = queue.then(()=>queuedRunRecollIndex(structuredClone(settingsWithoutLocalSettings),structuredClone(plugin.localSettings)));
 
