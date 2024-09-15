@@ -36,14 +36,36 @@ const filter_msg = {
 //     return width/40.0; // Return the computed width for 1 em
 // }
 
+// function getChSizeInPixels(element:HTMLElement) {
+//     // Create a temporary element
+//     const tempElement = document.createElement('span');
+    
+//     // Set the text content to '0' and style the element to use 1ch
+//     tempElement.textContent = '0';
+//     tempElement.style.font = getComputedStyle(element).font; // Apply the same font as the element
+//     tempElement.style.width = '1000ch';
+//     tempElement.style.position = 'absolute'; // Avoid affecting layout
+//     tempElement.style.visibility = 'hidden'; // Make it invisible
+
+//     // Append the element to the body
+//     document.body.appendChild(tempElement);
+
+//     // Measure the width of the element
+//     const chWidth = tempElement.offsetWidth;
+
+//     // Remove the temporary element
+//     document.body.removeChild(tempElement);
+
+//     return chWidth/1000.0;
+// }
+
 export class RecollqSearchModal extends SuggestModal<RecollResult> {
     private recollindex_cmd: string;
     private vaultPath: string;
     private vaultPath_length: number;
     private headerEl: HTMLElement | null = null;
     private filterEl: HTMLElement | null = null;
-    private datetime_width_px: number = 0; // store the width in px of the date-time column
-    
+
     constructor(app: App, private plugin: RecollSearch) {
         super(app);
         this.setPlaceholder(`Search for files ...`);
@@ -271,14 +293,20 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
         search_item.appendChild(modifiedDate);
         search_item.appendChild(typeEl);
         search_item.appendChild(tagsEl);
-        
+
         suggestion_item.appendChild(search_item);
         headerEl.appendChild(suggestion_item);
 
         headerEl.style.display = 'none';
 
         this.modalEl.insertBefore(headerEl,this.resultContainerEl);
-        
+
+        // const chSizeInPixels = getChSizeInPixels(modifiedDate);
+        // const max_num_chars = this.modalEl.innerWidth/chSizeInPixels;
+        // if(max_num_chars < 160) {
+        //     document.documentElement.style.setProperty('--recoll-search-extra', 'none');
+        // }
+
         this.headerEl = headerEl;
     }
 
@@ -409,5 +437,4 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
             console.error("Error in creating a leaf for the file to be opened:", result.fileName);
         }
     }
-
 }

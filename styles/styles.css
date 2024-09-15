@@ -36,7 +36,6 @@
 
 .recoll-search-item > div {
 	font-family: monospace; /* Use a monospace font */
-	font-size: var(--font-small);
 	text-align: left;
 	white-space: nowrap;
 	text-overflow: ellipsis;
@@ -78,4 +77,19 @@
 .recoll-search-settings .setting-item-description > p {
 	margin-top: var(--size-4-1);
 	margin-bottom: 0;
+}
+
+@media (max-width: 1500px) {
+	.recoll-search-item > div {
+		font-size: var(--font-smaller);
+	}
+
+	.recoll-search-type {
+		display: none;
+	}
+    .recoll-search-created,
+    .recoll-search-modified
+     {
+		/*display: none;*/
+    }
 }
