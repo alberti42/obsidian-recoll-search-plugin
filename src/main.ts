@@ -212,7 +212,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
 		containerEl.empty();
         containerEl.classList.add('recoll-search-settings');
 
-        new Setting(containerEl).setName('Recoll status').setHeading();
+        new Setting(containerEl).setName('Status of recoll indexing engine').setHeading();
 
         const recollindex_status = recoll.isRecollindexRunning();
         const status_label = recollindex_status ? "running" : "not running"
@@ -249,7 +249,33 @@ class RecollSearchSettingTab extends PluginSettingTab {
         // First call to configure the initial status
         updateStatus();
 
-        new Setting(containerEl).setName('Recoll environment paths').setHeading();
+        const debug_setting = new Setting(containerEl)
+            .setName('Show debug infos')
+            .setDesc('If this option is enabled, debug infos are shown in the development console. Note that toggling this option will restart recollindex.');
+
+        let debug_toggle: ToggleComponent;
+        debug_setting.addToggle(toggle => {
+            debug_toggle = toggle;
+            toggle
+            .setValue(this.plugin.settings.debug)
+            .onChange(async (value: boolean) => {
+                this.plugin.settings.debug = value;
+                this.plugin.debouncedSaveSettings();
+                recoll.runRecollIndex();
+            })
+        });
+
+        debug_setting.addExtraButton((button) => {
+            button
+                .setIcon("reset")
+                .setTooltip("Reset to default value")
+                .onClick(() => {
+                    const value = DEFAULT_SETTINGS.debug;                    
+                    debug_toggle.setValue(value);
+                });
+        });
+
+        new Setting(containerEl).setName('Paths of recoll engine').setHeading();
 
         let recollindex_warning: HTMLElement;
         const recollindex_setting = new Setting(containerEl)
@@ -551,7 +577,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
                 });
         });
 
-        new Setting(containerEl).setName('Indexing').setHeading();
+        new Setting(containerEl).setName('Indexing of MarkDown notes').setHeading();
 
         const date_format_setting = new Setting(containerEl)
             .setName('Date format used in frontmatter:')
@@ -634,34 +660,6 @@ class RecollSearchSettingTab extends PluginSettingTab {
         //             this.plugin.saveSettings();
         //         });
         // });
-
-
-        const debug_setting = new Setting(containerEl)
-            .setName('Show debug infos')
-            .setDesc('If this option is enabled, debug infos are shown in the development console. Note that toggling this option will restart recollindex.');
-
-        let debug_toggle: ToggleComponent;
-        debug_setting.addToggle(toggle => {
-            debug_toggle = toggle;
-            toggle
-            .setValue(this.plugin.settings.debug)
-            .onChange(async (value: boolean) => {
-                this.plugin.settings.debug = value;
-                this.plugin.debouncedSaveSettings();
-                recoll.runRecollIndex();
-            })
-        });
-
-        debug_setting.addExtraButton((button) => {
-            button
-                .setIcon("reset")
-                .setTooltip("Reset to default value")
-                .onClick(() => {
-                    const value = DEFAULT_SETTINGS.debug;                    
-                    debug_toggle.setValue(value);
-                });
-        });
-
 
         new Setting(containerEl).setName('Obsidian integration').setHeading();
 
