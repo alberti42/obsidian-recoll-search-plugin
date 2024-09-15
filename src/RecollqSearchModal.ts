@@ -5,10 +5,10 @@ import { formatUnixTime } from 'utils';
 import { FilterType, AltKeyBehavior } from 'types';
 import { DEFAULT_SETTINGS } from 'default';
 import { create } from 'domain';
+import { createElement } from 'react';
 
 // Interface for Recoll result
 interface RecollResult {
-    fileName: string;
     file: TFile;
     fileType: string;
     createdDate: string;
@@ -194,7 +194,6 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
                         this.plugin.settings.momentjsFormat);
 
                     results.push({
-                        fileName: url.split('/').pop() || '',
                         file,
                         fileType: mtype,
                         createdDate:  created_formatted,
@@ -351,31 +350,23 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
     renderSuggestion(result: RecollResult, el: HTMLElement) {
         el.empty(); // Clear the existing content
 
-        const suggestionContainer = document.createElement('div');
-        suggestionContainer.classList.add('recoll-search-item');
-
-        const relevanceEl = document.createElement('div');
-        relevanceEl.textContent = result.relevance;
-        relevanceEl.classList.add('recoll-search-score');
-
-        const nameEl = document.createElement('div');
-        nameEl.textContent = result.fileName;
-        nameEl.classList.add('recoll-search-name');
-
-        const createdEl = document.createElement('div');
-        createdEl.textContent = result.createdDate;
-        createdEl.classList.add('recoll-search-created');
-
-        const modifiedDate = document.createElement('div');
-        modifiedDate.textContent = result.modifiedDate;
-        modifiedDate.classList.add('recoll-search-modified');
-
-        const typeEl = document.createElement('div');
-        typeEl.textContent = result.fileType;
-        typeEl.classList.add('recoll-search-type');
-
-        const tagsEl = document.createElement('div');
-        tagsEl.classList.add('recoll-search-tags');
+        const suggestionContainer = createDiv({cls:'recoll-search-item'});
+        
+        const relevanceEl = createDiv({text:result.relevance,cls:'recoll-search-score'})
+        
+        const nameEl = createDiv({cls:'recoll-search-name'});
+        const filenameEl = createDiv({text:result.file.name});
+        console.log(result.file.path.lastIndexOf('/'));
+        const parentEl = createEl('small',{
+            text:result.file.path.slice(0,result.file.path.lastIndexOf('/'))
+        });
+        nameEl.appendChild(filenameEl);
+        nameEl.appendChild(parentEl);
+        
+        const createdEl = createDiv({text:result.createdDate,cls:'recoll-search-created'});
+        const modifiedDate = createDiv({text:result.modifiedDate,cls:'recoll-search-modified'});
+        const typeEl = createDiv({text:result.fileType,cls:'recoll-search-type'});
+        const tagsEl = createDiv({cls:'recoll-search-tags'});
 
         if (result.tags.length>0) {
             const tagsArray = result.tags;
@@ -386,13 +377,12 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
 
                 const tagContainer = document.createElement('div');
                 
-                const hashtagEl = document.createElement('span');
-                hashtagEl.classList.add('cm-formatting', 'cm-formatting-hashtag', 'cm-hashtag', 'cm-hashtag-begin', 'cm-meta', 'cm-tag-Computer');
-                hashtagEl.textContent = '#';
-
-                const tagEl = document.createElement('span');
-                tagEl.textContent = tag;
-                tagEl.classList.add('cm-hashtag', 'cm-meta', 'cm-hashtag-end');
+                const hashtagEl = createSpan({
+                    cls:['cm-formatting', 'cm-formatting-hashtag', 'cm-hashtag', 'cm-hashtag-begin', 'cm-meta', 'cm-tag-Computer'],
+                    text:'#'
+                });
+                
+                const tagEl = createSpan({text:tag,cls:['cm-hashtag', 'cm-meta', 'cm-hashtag-end']});
 
                 tagContainer.appendChild(hashtagEl);
                 tagContainer.appendChild(tagEl);
@@ -434,7 +424,7 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
             // this.app.workspace.openLinkText(relativePath, '', true);
             leaf.openFile(result.file);
         } else {
-            console.error("Error in creating a leaf for the file to be opened:", result.fileName);
+            console.error("Error in creating a leaf for the file to be opened:", result.file.name);
         }
     }
 }

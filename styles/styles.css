@@ -63,7 +63,7 @@
 	flex: 10 1 20ch;
 	display: flex;
 	gap: var(--size-4-1); /* Space between tags */
-	align-items: center;
+	align-items: flex-start;
 	justify-content: flex-start; /* Align tags to the right */
 	white-space: nowrap;
 	text-overflow: ellipsis;
