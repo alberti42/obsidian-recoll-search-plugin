@@ -195,9 +195,12 @@ class RecollSearchSettingTab extends PluginSettingTab {
     }
 
 	display(): void {
+        const LOCALHOST_SETTING = `This setting applies to this local host with MAC address ${this.plugin.MACaddress}.`;
+
 		const { containerEl } = this;
         
 		containerEl.empty();
+        containerEl.classList.add('recoll-search-settings');
 
         new Setting(containerEl).setName('Recoll status').setHeading();
 
@@ -238,20 +241,23 @@ class RecollSearchSettingTab extends PluginSettingTab {
 
         new Setting(containerEl).setName('Recoll environment paths').setHeading();
 
+        let recollindex_warning: HTMLElement;
         const recollindex_setting = new Setting(containerEl)
             .setName("Path to recollindex utility")
-            .setDesc(`Absolute path to 'recollindex' utility. \
-                This setting applies to this local host with MAC address '${this.plugin.MACaddress}'.`);
+            .setDesc(createFragment((frag:DocumentFragment) => {
+                frag.appendText("Absolute path to 'recollindex' utility on your computer.");
+                frag.appendChild(createEl('p',{text:LOCALHOST_SETTING}));
+                recollindex_warning = createEl('p',{cls:'mod-warning', text:'Please enter the path of an existing file.'});
+                recollindex_warning.style.display = 'none';
+                frag.appendChild(recollindex_warning);
+            }));
 
         let recollindex_text:TextComponent;
         recollindex_setting.addText(text => {
                 recollindex_text = text;
-                const warningEl = containerEl.createDiv({ cls: 'mod-warning' });
                 text.setPlaceholder('/usr/local/bin/recollindex')
                 .setValue(this.plugin.localSettings.recollindexCmd)
                 .onChange(async (value) => {
-                    // Remove any previous warning text
-                    warningEl.textContent = '';
                     const parsedPath = parseFilePath(value);
 
                     // when the field is empty, we don't consider it as an error,
@@ -259,11 +265,11 @@ class RecollSearchSettingTab extends PluginSettingTab {
                     const isEmpty = value === "";
 
                     if (!isEmpty && !await doesFileExists(value)) {
-                        warningEl.textContent = "Please enter the path of an existing file.";
-                        warningEl.style.display = 'block';
+                        recollindex_warning.textContent = "Please enter the path of an existing file.";
+                        recollindex_warning.style.display = 'block';
                     } else {
                         // Hide the warning and save the valid value
-                        warningEl.style.display = 'none';
+                        recollindex_warning.style.display = 'none';
                         this.plugin.localSettings.recollindexCmd = value;
                         this.plugin.saveSettings();
                     }
@@ -282,32 +288,34 @@ class RecollSearchSettingTab extends PluginSettingTab {
                 });
         });
 
+        let recollq_warning: HTMLElement;
         const recollq_setting = new Setting(containerEl)
             .setName("Path to recollq utility")
-            .setDesc(`Absolute path to 'recollq' utility. \
-                This setting applies to this local host with MAC address '${this.plugin.MACaddress}'.`);
+            .setDesc(createFragment((frag:DocumentFragment) => {
+                frag.appendText("Absolute path to 'recollq' utility on your computer.");
+                frag.appendChild(createEl('p',{text:LOCALHOST_SETTING}));
+                recollq_warning = createEl('p',{cls:'mod-warning', text:'Please enter the path of an existing file.'});
+                recollq_warning.style.display = 'none';
+                frag.appendChild(recollq_warning);
+            }));
 
         let recollq_text:TextComponent;
         recollq_setting.addText(text => {
                 recollq_text = text;
-                const warningEl = containerEl.createDiv({ cls: 'mod-warning' });
                 text.setPlaceholder('/usr/local/bin/recollq')
                 .setValue(this.plugin.localSettings.recollqCmd)
                 .onChange(async (value) => {
-                    // Remove any previous warning text
-                    warningEl.textContent = '';
-                    const parsedPath = parseFilePath(value);
+                     const parsedPath = parseFilePath(value);
 
                     // when the field is empty, we don't consider it as an error,
                     // but simply as no input was provided yet
                     const isEmpty = value === "";
 
                     if (!isEmpty && !await doesFileExists(value)) {
-                        warningEl.textContent = "Please enter the path of an existing file.";
-                        warningEl.style.display = 'block';
+                        recollq_warning.style.display = 'block';
                     } else {
                         // Hide the warning and save the valid value
-                        warningEl.style.display = 'none';
+                        recollq_warning.style.display = 'none';
                         this.plugin.localSettings.recollqCmd = value;
                         this.plugin.saveSettings();
                     }
@@ -326,20 +334,32 @@ class RecollSearchSettingTab extends PluginSettingTab {
                 });
         });
 
+        let python_path_warning: HTMLElement;
         const python_path_setting = new Setting(containerEl)
             .setName("Path to site-packages directory")
-            .setDesc(`Absolute path (PYTHONPATH) to 'site-packages' directory that contains the python module 'recoll'. \
-                    This setting applies to this local host with MAC address '${this.plugin.MACaddress}'.`);
+            .setDesc(createFragment((frag) => {
+                frag.appendText("Absolute path (PYTHONPATH) to 'site-packages' directory on your computer, which contains the python module 'recoll'. \
+                It is highly recommend to install Python's recoll module in a virtual environment, where all other Python's modules, which \
+                are needed to index your documents, are also installed. You can create a virtual environment by typing on your terminal:");
+                frag.appendChild(createEl('pre',{text: "python3 -m venv YOUR_LOCAL_FOLDER", cls: 'recoll-search-selectable'}));
+                frag.appendText('where YOUR_LOCAL_FOLDER must be replaced with the intended location on your computer (e.g., ');
+                frag.appendChild(createEl('em',{text: "/home/your_user/.local/share/recoll/venv", cls: 'recoll-search-selectable'}));
+                frag.appendText('). If you followed these instrucitons, you should enter here ');
+                frag.appendChild(createEl('em',{text: "YOUR_LOCAL_FOLDER/lib/python3.XYZ/site-packages", cls: 'recoll-search-selectable'}));
+                frag.appendText(', where python3.XYZ should be adjusted to the python version your are currenty using.');
+                frag.appendChild(createEl('p',{text:LOCALHOST_SETTING}));
+                python_path_warning = createEl('p',{cls:'mod-warning', text:'Please enter the path of an existing file.'});
+                python_path_warning.style.display = 'none';
+                frag.appendChild(python_path_warning);
+            }));
 
         let python_path_text:TextComponent;
         python_path_setting.addText(text => {
                 python_path_text = text;
-                const python_path_warningEl = containerEl.createDiv({ cls: 'mod-warning' });
                 text.setPlaceholder('site-packages')
                 .setValue(this.plugin.localSettings.pythonPath)
                 .onChange(async (value) => {
                     // Remove any previous warning text
-                    python_path_warningEl.textContent = '';
                     const parsedPath = parseFilePath(value);
 
                     // when the field is empty, we don't consider it as an error,
@@ -347,11 +367,10 @@ class RecollSearchSettingTab extends PluginSettingTab {
                     const isEmpty = value === "";
 
                     if (!isEmpty && !await doesDirectoryExists(value)) {
-                        python_path_warningEl.textContent = "Please enter the path of an existing 'site-packages' directory.";
-                        python_path_warningEl.style.display = 'block';
+                        python_path_warning.style.display = 'block';
                     } else {
                         // Hide the warning and save the valid value
-                        python_path_warningEl.style.display = 'none';
+                        python_path_warning.style.display = 'none';
                         this.plugin.localSettings.pythonPath = value;
                         await this.plugin.saveSettings();
                     }
@@ -370,20 +389,24 @@ class RecollSearchSettingTab extends PluginSettingTab {
                 });
         });
 
+        let recoll_datadir_warning:HTMLElement;
         const recoll_datadir_setting = new Setting(containerEl)
             .setName("Path to share/recoll directory")
-            .setDesc(`Absolute path (RECOLL_DATADIR) to recoll data directory 'recoll/share'. \
-                This setting applies to this local host with MAC address '${this.plugin.MACaddress}'.`);
+            .setDesc(createFragment((frag:DocumentFragment) => {
+                frag.appendText("Absolute path (RECOLL_DATADIR) to recoll data directory 'recoll/share' on your computer.");
+                frag.appendChild(createEl('p',{text:LOCALHOST_SETTING}));
+                recoll_datadir_warning = createEl('p',{cls:'mod-warning', text:'Please enter the path of an existing file.'});
+                recoll_datadir_warning.style.display = 'none';
+                frag.appendChild(recoll_datadir_warning);
+            }));
 
         let recoll_datadir_text:TextComponent;
         recoll_datadir_setting.addText(text => {
                 recoll_datadir_text = text;
-                const warningEl = containerEl.createDiv({ cls: 'mod-warning' });
                 text.setPlaceholder('/usr/local/share/recoll')
                 .setValue(this.plugin.localSettings.recollDataDir)
                 .onChange(async (value) => {
                     // Remove any previous warning text
-                    warningEl.textContent = '';
                     const parsedPath = parseFilePath(value);
 
                     // when the field is empty, we don't consider it as an error,
@@ -391,11 +414,10 @@ class RecollSearchSettingTab extends PluginSettingTab {
                     const isEmpty = value === "";
 
                     if (!isEmpty && !await doesDirectoryExists(value)) {
-                        warningEl.textContent = "Please enter the path of an existing directory.";
-                        warningEl.style.display = 'block';
+                        recoll_datadir_warning.style.display = 'block';
                     } else {
                         // Hide the warning and save the valid value
-                        warningEl.style.display = 'none';
+                        recoll_datadir_warning.style.display = 'none';
                         this.plugin.localSettings.recollDataDir = value;
                         this.plugin.saveSettings();
                     }
@@ -414,15 +436,20 @@ class RecollSearchSettingTab extends PluginSettingTab {
                 });
         });
 
+        let path_extensions_warning:HTMLElement;
         const path_extensions_setting = new Setting(containerEl)
             .setName("Directories to be added to $PATH")
-            .setDesc(`List of absolute paths to directories separated by ':' that are added to $PATH. \
-                This setting applies to this local host with MAC address '${this.plugin.MACaddress}'.`);
-
+            .setDesc(createFragment((frag:DocumentFragment) => {
+                frag.appendText("List of absolute paths to directories separated by ':' that are added to $PATH.");
+                frag.appendChild(createEl('p',{text:LOCALHOST_SETTING}));
+                path_extensions_warning = createEl('p',{cls:'mod-warning'});
+                path_extensions_warning.style.display = 'none';
+                frag.appendChild(path_extensions_warning);
+            }));
+            
         let path_extensions_text:TextComponent;
         path_extensions_setting.addText(text => {
                 path_extensions_text = text;
-                const warningEl = containerEl.createDiv({ cls: 'mod-warning' });
                 text.setPlaceholder('/usr/local/bin')
                 .setValue(this.plugin.localSettings.pathExtensions.join(':'))
                 .onChange(async (value) => {
@@ -431,7 +458,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
 
                     const errors = (await Promise.all(paths.map(async (path:string):Promise<string|null> => {
                         // Remove any previous warning text
-                        warningEl.textContent = '';
+                        path_extensions_warning.textContent = '';
                         const parsedPath = parseFilePath(path);
 
                         // when the field is empty, we don't consider it as an error,
@@ -444,11 +471,11 @@ class RecollSearchSettingTab extends PluginSettingTab {
                     }))).filter((error:string|null): error is string => error !==null );
 
                     if(errors.length>0) {
-                        warningEl.innerHTML = errors.join('<br>');
-                        warningEl.style.display = 'block';
+                        path_extensions_warning.innerHTML = errors.join('<br>');
+                        path_extensions_warning.style.display = 'block';
                     } else {
                         // Hide the warning and save the valid value
-                        warningEl.style.display = 'none';
+                        path_extensions_warning.style.display = 'none';
                         this.plugin.localSettings.pathExtensions = paths.filter((path:string) => path !== "");
                         this.plugin.saveSettings();
                     }

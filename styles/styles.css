@@ -60,3 +60,12 @@
 	text-overflow: ellipsis;
 	overflow: hidden;
 }
+
+.recoll-search-selectable {
+    user-select: text;
+}
+
+.recoll-search-settings .setting-item-description > p {
+	margin-top: var(--size-4-1);
+	margin-bottom: 0;
+}
