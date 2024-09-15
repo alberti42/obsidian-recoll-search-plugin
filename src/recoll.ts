@@ -207,6 +207,8 @@ async function queuedRunRecollIndex(settings:Omit<RecollSearchSettings, 'localSe
     recollindexProcess = spawn(recollindex_cmd, ['-m', '-O', '-w0', '-x', '-c', localSettings.recollConfDir], {
         env: {
             ...process.env,
+            RCLMD_CREATED: settings.createdLabel,
+            RCLMD_MODIFIED: settings.modifiedLabel,
             PATH: `${pathExtension}:${process.env.PATH}`, // Ensure Homebrew Python and binaries are in the PATH
             PYTHONPATH: pythonPath, // Add the path to custom Python packages
             RECOLL_DATADIR: recollDataDir,  // Add the path to recoll's share folder

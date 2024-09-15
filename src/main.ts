@@ -99,15 +99,6 @@ export default class RecollSearch extends Plugin {
             recoll.runRecollIndex();
         });
 
-        // For example, triggering the worker when a command is run:
-        this.addCommand({
-            id: 'recollindex-restart',
-            name: 'Gracefully restart recollindex',
-            callback: async () => {
-                recoll.runRecollIndex();
-            }
-        });
-
         this.addCommand({
             id: 'recollq-search',
             name: 'Search files',
@@ -117,10 +108,36 @@ export default class RecollSearch extends Plugin {
             }
         });
 
+        this.addDebugCommands(this.settings.debug);
+
         this.registerEvents();
 
         // console.log('Loaded plugin Recoll Search');
 	}
+
+    addDebugCommands(status:boolean) {
+        if(status) {
+            this.addCommand({
+                id: 'recollindex-restart',
+                name: 'Gracefully restart recollindex',
+                callback: async () => {
+                    recoll.runRecollIndex();
+                }
+            });
+
+            this.addCommand({
+                id: 'recollindex-stop',
+                name: 'Gracefully stop recollindex',
+                callback: async () => {
+                    recoll.runRecollIndex();
+                }
+            });
+        } else {
+            // Safely remove debug commands
+            this.app.commands.removeCommand(`${this.manifest.id}:recollindex-restart`);
+            this.app.commands.removeCommand(`${this.manifest.id}:recollindex-stop`);
+        }
+    }
 
 	onunload() {
         recoll.stopRecollIndex();
@@ -238,7 +255,9 @@ class RecollSearchSettingTab extends PluginSettingTab {
 
         const debug_setting = new Setting(containerEl)
             .setName('Show debug infos')
-            .setDesc('If this option is enabled, debug infos are shown in the development console. Note that toggling this option will restart recollindex.');
+            .setDesc('If this option is enabled, debug infos are shown in the development console. \
+                In addition, commands are added to Obsidian Command palette to manually stop and restart recollindex. \
+                Note that toggling this option will restart recollindex.');
 
         let debug_toggle: ToggleComponent;
         debug_setting.addToggle(toggle => {
@@ -248,6 +267,7 @@ class RecollSearchSettingTab extends PluginSettingTab {
             .onChange(async (value: boolean) => {
                 this.plugin.settings.debug = value;
                 this.plugin.debouncedSaveSettings();
+                this.plugin.addDebugCommands(value);
                 recoll.runRecollIndex();
             })
         });

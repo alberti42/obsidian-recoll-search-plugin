@@ -5,6 +5,11 @@ import 'obsidian';
 declare module "obsidian" {
     interface App {
         plugins: Plugins;
+        commands: Commands;
+    }
+
+    interface Commands {
+        removeCommand: (cmdId:string)=>void;
     }
     
     interface Plugins {
