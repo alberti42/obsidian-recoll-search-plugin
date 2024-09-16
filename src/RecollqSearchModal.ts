@@ -23,6 +23,9 @@ const filter_msg = {
     2 : 'all files and dirs' // ANY = 2
 };
 
+// Store the last query input 
+let lastQuery:string = "";
+
 // function get_em_width(parentEl:HTMLElement):number {
 //     const tempElement1 = createDiv({cls:'suggestion-item'});
 //     const tempElement2 = createDiv({cls:'recoll-search-item'});
@@ -339,9 +342,15 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
 
         // Create header for the table of results
         this.createHeader();
+
+        
+        // Use the last query
+        this.inputEl.value = lastQuery;
+        this.updateSuggestions(); 
     }
 
     onClose() {
+        lastQuery = this.inputEl.value;
         this.containerEl.removeEventListener('keydown', this.handleKeyDown);
         super.onClose();
         this.contentEl.empty();
