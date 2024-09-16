@@ -137,7 +137,7 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
             // Handle process completion
             recollq.on('close', (code) => {
                 if (code !== 0) {
-                    console.error(`recollq process exited with code ${code}`);
+                    // console.error(`recollq process exited with code ${code}`);
                     console.error(stderr);
                     return reject(stderr);
                 }
@@ -356,7 +356,6 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
         
         const nameEl = createDiv({cls:'recoll-search-name'});
         const filenameEl = createDiv({text:result.file.name});
-        console.log(result.file.path.lastIndexOf('/'));
         const parentEl = createEl('small',{
             text:result.file.path.slice(0,result.file.path.lastIndexOf('/'))
         });
