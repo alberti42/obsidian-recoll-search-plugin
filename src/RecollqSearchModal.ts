@@ -60,7 +60,7 @@ let lastQuery:string = "";
 // }
 
 export class RecollqSearchModal extends SuggestModal<RecollResult> {
-    private recollindex_cmd: string;
+    private recollq_cmd: string;
     private vaultPath: string;
     private vaultPath_length: number;
     private headerEl: HTMLElement | null = null;
@@ -72,7 +72,7 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
         this.setInstructions(this.getInstructionsBasedOnOS());
 
         // Store the address to recollq cmd
-        this.recollindex_cmd = this.plugin.localSettings.recollqCmd;
+        this.recollq_cmd = this.plugin.localSettings.recollqCmd;
         this.vaultPath = this.plugin.getVaultPath();
         this.vaultPath_length = this.vaultPath.length;
 
@@ -123,7 +123,7 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
             // also want option -N in this case.
             // -S fld : sort by field <fld>
             // -c <configdir> : specify configuration directory, overriding $RECOLL_CONFDIR.
-            const recollq = spawn(this.recollindex_cmd, ['-c', this.plugin.localSettings.recollConfDir, '-F', 'url mtype created modified tags relevancyrating', '-S', 'relevancyrating', query]);
+            const recollq = spawn(this.recollq_cmd, ['-c', this.plugin.localSettings.recollConfDir, '-F', 'url mtype created modified tags relevancyrating', '-S', 'relevancyrating', query]);
 
             let stdout = '';
             let stderr = '';
@@ -168,7 +168,7 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
                     const decodedFields = line.split(' ').map((field:string) => Buffer.from(field, 'base64').toString('utf-8'));
                     // Destructure the decoded fields into individual variables
                     const [url, mtype, created, modified, tags, relevance] = decodedFields;
-
+                    
                     const filePath = url.normalize("NFC").slice(7);  // remove the prefix `file://`
 
                     if(!filePath.startsWith(this.vaultPath)) {
