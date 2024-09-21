@@ -11,18 +11,21 @@ import {
 	PluginManifest,
 	TextComponent,
 	ToggleComponent,
-    EventRef,
     DropdownComponent,
+    Menu,
+    TAbstractFile,
+    TFolder,
+    WorkspaceLeaf,
 } from "obsidian";
 
 import { DEFAULT_LOCAL_SETTINGS, DEFAULT_SETTINGS } from "default";
-import { RecollSearchLocalSettings, RecollSearchSettings, AltKeyBehavior } from "types";
+import { RecollSearchLocalSettings, RecollSearchSettings, AltKeyBehavior, FileMenuCallback } from "types";
 
 import { monkeyPatchConsole, unpatchConsole } from "patchConsole";
 
 // import { isRecollindexRunning, runRecollIndex, setPluginReference, stopRecollIndex, updateProcessLogging } from "recoll";
 import * as recoll from "recoll"
-import { doesDirectoryExists, doesFileExists, getMACAddress, joinPaths, parseFilePath, debounceFactoryWithWaitMechanism, momentJsToDatetime } from "utils";
+import { doesDirectoryExists, doesFileExists, getMACAddress, parseFilePath, debounceFactoryWithWaitMechanism, momentJsToDatetime } from "utils";
 
 import { sep, posix } from "path"
 
@@ -34,12 +37,13 @@ export default class RecollSearch extends Plugin {
     localSettings: RecollSearchLocalSettings = { ...DEFAULT_LOCAL_SETTINGS };
     MACaddress!: string; // initialized by `this.loadSettings()`
     
-    private exitListener: NodeJS.ExitListener | null = null;
-    private sigintListener: ((...args: any[]) => void) | null = null;
-    private sigtermListener: ((...args: any[]) => void) | null = null;
+    private exit_cb: NodeJS.ExitListener | null = null;
+    private sigint_cb: ((...args: any[]) => void) | null = null;
+    private sigterm_cb: ((...args: any[]) => void) | null = null;
+    private file_menu_cb: FileMenuCallback | null = null;
 
     private vaultPath: string = "";
-
+    
      // Declare class methods that will be initialized in the constructor
     debouncedSaveSettings: (callback?: () => void) => void;
     waitForSaveToComplete: () => Promise<void>;
@@ -156,7 +160,7 @@ export default class RecollSearch extends Plugin {
         this.unregisterEvents();
 
         // unpatch console
-        unpatchConsole();
+        unpatchConsole();        
 	}
 
     onquit() {
@@ -164,27 +168,54 @@ export default class RecollSearch extends Plugin {
     }
 
     registerEvents() {
-        // Registering the shutdown hooks
-        this.exitListener = () => {
+        this.exit_cb = () => {
             recoll.stopRecollIndex(); // Called when the Node.js process exits normally
         };
-        this.sigintListener = () => {
+        this.sigint_cb = () => {
             recoll.stopRecollIndex();
         }; // Called when Ctrl+C is pressed
-        this.sigtermListener = () => {
+        
+        this.sigterm_cb = () => {
             recoll.stopRecollIndex();
         }; // Called when a termination request is sent to the process
 
-        process.on('exit', this.exitListener);
-        process.on('SIGINT', this.sigintListener);
-        process.on('SIGTERM', this.sigtermListener);
+        this.file_menu_cb = (menu: Menu, file: TAbstractFile, source:string, leaf?: WorkspaceLeaf) => {
+            if (file instanceof TFolder) {
+                menu.addItem((cb) => {
+                    cb.setTitle("Search in folder using recoll");
+                    cb.onClick((evt:MouseEvent | KeyboardEvent) => {
+                        const initialQuery = `dir:"${file.path}"`
+                        const modal = new RecollqSearchModal(this.app,this,initialQuery);
+                        modal.open();
+                    });
+                });
+            }
+        }; // Call when the user right-click on some folder in the file navigation pane 
+
+        process.on('exit', this.exit_cb);
+        process.on('SIGINT', this.sigint_cb);
+        process.on('SIGTERM', this.sigterm_cb);
+        this.app.workspace.on("file-menu", this.file_menu_cb);
     }
 
     unregisterEvents() {
         // Remove event listeners
-        if(this.exitListener) process.off('exit', this.exitListener);
-        if(this.sigintListener) process.off('SIGINT', this.sigintListener);
-        if(this.sigtermListener) process.off('SIGTERM', this.sigtermListener);
+        if(this.exit_cb) {
+            process.off('exit', this.exit_cb);
+            this.exit_cb = null;
+        }
+        if(this.sigint_cb) {
+            process.off('SIGINT', this.sigint_cb);
+            this.sigint_cb = null;              
+        } 
+        if(this.sigterm_cb) {
+            process.off('SIGTERM', this.sigterm_cb);
+            this.sigterm_cb = null;
+        }
+        if(this.file_menu_cb) {
+            this.app.workspace.off("file-menu", this.file_menu_cb);
+            this.file_menu_cb = null;
+        }
     }
 
 	async loadSettings() {

@@ -66,7 +66,7 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
     private headerEl: HTMLElement | null = null;
     private filterEl: HTMLElement | null = null;
 
-    constructor(app: App, private plugin: RecollSearch) {
+    constructor(app: App, private plugin: RecollSearch, initialQuery?:string) {
         super(app);
         this.setPlaceholder(`Search for files ...`);
         this.setInstructions(this.getInstructionsBasedOnOS());
@@ -75,6 +75,10 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
         this.recollindex_cmd = this.plugin.localSettings.recollqCmd;
         this.vaultPath = this.plugin.getVaultPath();
         this.vaultPath_length = this.vaultPath.length;
+
+        if(initialQuery) {
+            lastQuery = initialQuery;
+        }
     }
 
     getInstructionsBasedOnOS(): { command: string, purpose: string } [] {

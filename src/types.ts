@@ -1,6 +1,7 @@
 // types.ts
 
 import { DEFAULT_SETTINGS } from "default";
+import { Menu, TAbstractFile, WorkspaceLeaf } from "obsidian";
 
 export interface RecollSearchSettings {
     debug: boolean;
@@ -24,6 +25,8 @@ export interface RecollSearchLocalSettings {
     recollindexCmd: string;
     recollqCmd: string;
 }
+
+export type FileMenuCallback = (menu: Menu, file: TAbstractFile, source:string, leaf?: WorkspaceLeaf) => void;
 
 export interface ParsedPath {
     dir: string,
