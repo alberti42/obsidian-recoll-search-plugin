@@ -1,6 +1,8 @@
-# Icon Bar Manager Plugin for Obsidian
+# Recoll Search Engine Plugin for Obsidian
 
 ## Overview
+
+To be written.
 
 ## Donations
 I would be grateful for any donation to support the development of this plugin.

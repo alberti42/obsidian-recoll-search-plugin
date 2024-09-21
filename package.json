@@ -1,5 +1,5 @@
 {
-	"name": "obsidian-import-attachments-plus",
+	"name": "recoll-search",
 	"version": "1.0.0",
 	"description": "Import attachments by moving them into the vault.",
 	"main": "main.js",
