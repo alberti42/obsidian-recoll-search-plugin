@@ -36,7 +36,6 @@ export interface ParsedPath {
 export enum FilterType {
     MARKDOWN = 0,
     ANY_FILE = 1,
-    ANY = 2,
 }
 
 export enum AltKeyBehavior {

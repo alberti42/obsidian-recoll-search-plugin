@@ -1,11 +1,9 @@
-import { App, SuggestModal, Notice, Platform, TFile } from 'obsidian';
+import { App, SuggestModal, Platform, TFile } from 'obsidian';
 import { spawn } from 'child_process';
 import RecollSearch from 'main';
 import { formatUnixTime } from 'utils';
 import { FilterType, AltKeyBehavior } from 'types';
 import { DEFAULT_SETTINGS } from 'default';
-import { create } from 'domain';
-import { createElement } from 'react';
 
 // Interface for Recoll result
 interface RecollResult {
@@ -20,7 +18,6 @@ interface RecollResult {
 const filter_msg = {
     0 : 'only md files',  // MARKDOWN = 0
     1 : 'all files excluding dirs', // ANY_FILE = 1
-    2 : 'all files and dirs' // ANY = 2
 };
 
 // function get_em_width(parentEl:HTMLElement):number {
@@ -249,7 +246,7 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
 
     private toggleFilter() {
         // Cycle through the filter types
-        this.plugin.settings.filterType = (this.plugin.settings.filterType + 1) % 3;
+        this.plugin.settings.filterType = (this.plugin.settings.filterType + 1) % Object.keys(filter_msg).length
         this.plugin.debouncedSaveSettings();
 
         if (!this.filterEl) return;
