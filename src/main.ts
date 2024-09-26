@@ -16,6 +16,7 @@ import {
     TAbstractFile,
     TFolder,
     WorkspaceLeaf,
+    MenuItem,
 } from "obsidian";
 
 import { DEFAULT_LOCAL_SETTINGS, DEFAULT_SETTINGS } from "default";
@@ -181,14 +182,15 @@ export default class RecollSearch extends Plugin {
 
         this.file_menu_cb = (menu: Menu, file: TAbstractFile, source:string, leaf?: WorkspaceLeaf) => {
             if (file instanceof TFolder) {
-                menu.addItem((cb) => {
-                    cb.setTitle("Search in folder using recoll");
-                    cb.onClick((evt:MouseEvent | KeyboardEvent) => {
-                        const initialQuery = `dir:"${file.path}"`
-                        const modal = new RecollqSearchModal(this.app,this,initialQuery);
-                        modal.open();
-                    });
-                });
+                menu.addItem((cb:MenuItem) => 
+                    cb.setTitle("Search in folder using recoll")
+                        .setIcon("lucide-folder-search")
+                        .onClick((evt:MouseEvent | KeyboardEvent) => {
+                            const initialQuery = `dir:"${file.path}" `
+                            const modal = new RecollqSearchModal(this.app,this,initialQuery);
+                            modal.open();
+                        })
+                );
             }
         }; // Call when the user right-click on some folder in the file navigation pane 
 
