@@ -2,11 +2,14 @@
 
 import { DEFAULT_LOCAL_SETTINGS, DEFAULT_SETTINGS } from "default";
 import RecollSearch from "main";
-import { App, DropdownComponent, Platform, PluginSettingTab, Setting, TextComponent, ToggleComponent } from "obsidian";
+import { App, ButtonComponent, Component, DropdownComponent, ExtraButtonComponent, Platform, PluginSettingTab, Setting, TextComponent, ToggleComponent } from "obsidian";
 
 import * as recoll from "recoll"
 import { AltKeyBehavior } from "types";
 import { doesDirectoryExists, doesFileExists, momentJsToDatetime, parseFilePath } from "utils";
+
+const RUNNING = 'running';
+const NOT_RUNNING = 'not running';
 
 // Plugin settings tab
 export class RecollSearchSettingTab extends PluginSettingTab {
@@ -29,40 +32,30 @@ export class RecollSearchSettingTab extends PluginSettingTab {
 
         new Setting(containerEl).setName('Status of recoll indexing engine').setHeading();
 
-        const recollindex_status = recoll.isRecollindexRunning();
-        const status_label = recollindex_status ? "running" : "not running"
-
+        let previous_recollindex_status = recoll.isRecollindexRunning();
+        
         let status_span: HTMLElement;
         const status_setting = new Setting(containerEl)
             .setName(createFragment((frag:DocumentFragment) => {
                 frag.appendText('Status of recollindex daemon service: ');
-                status_span = createSpan();
+                status_span = createSpan({text: previous_recollindex_status ? RUNNING : NOT_RUNNING});
                 frag.appendChild(status_span);
-            }));   
-
-        let busy = false;
-        // Function to update the status
-        const updateStatus = async () => {
-            if(busy) return;
-            busy = true;
-            const recollindex_status = recoll.isRecollindexRunning();
-            const status_label = recollindex_status ? "running" : "not running"
-            status_span.innerText = status_label;
-            if(recollindex_status) {
-                status_span.classList.remove('mod-warning');
-                status_span.classList.add('mod-success')
-            } else {
-                status_span.classList.remove('mod-success');
-                status_span.classList.add('mod-warning')
-            }
-            busy = false;
-        }
-
-        // Set an interval to update the status every 300 milliseconds
-        setInterval(updateStatus, 200);
-
-        // First call to configure the initial status
-        updateStatus();
+            }));
+        
+        let status_button: ButtonComponent;
+        status_setting
+        .addButton(button => {
+            status_button = button;
+            button
+            .setCta()
+            .onClick((evt:MouseEvent) => {
+                if(previous_recollindex_status) {
+                    recoll.stopRecollIndex();
+                } else {
+                    recoll.runRecollIndex();
+                }
+            })
+        })
 
         const debug_setting = new Setting(containerEl)
             .setName('Show debug infos')
@@ -93,7 +86,15 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                 });
         });
 
-        new Setting(containerEl).setName('Paths of recoll engine').setHeading();
+        const recoll_engine_paths_heading = new Setting(containerEl).setName('Paths of recoll engine')
+            .setHeading()
+            .setDesc(createFragment((frag:DocumentFragment) => {
+                    frag.appendText("You first need to stop recollindex to be able to change the configurations below. Use the placeholder ");
+                    frag.createEl('code',{text:'${vault_path}', cls: 'recoll-search-selectable'});
+                    frag.appendText(" if you need to construct a path relative to the vault (e.g., ");
+                    frag.createEl('code',{text:'${vault_path}/00 Meta/recoll/recoll.conf', cls: 'recoll-search-selectable'});
+                    frag.appendText(").");
+                }));
 
         let recollindex_warning: HTMLElement;
         const recollindex_setting = new Setting(containerEl)
@@ -128,7 +129,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                 })
             });
 
-        recollindex_setting.addExtraButton((button) => {
+        const recollindex_extrabutton = recollindex_setting.addExtraButton((button) => {
             button
                 .setIcon("reset")
                 .setTooltip("Reset to default value")
@@ -172,7 +173,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                 })
             });
 
-        recollq_setting.addExtraButton((button) => {
+        const recollq_extrabutton = recollq_setting.addExtraButton((button) => {
             button
                 .setIcon("reset")
                 .setTooltip("Reset to default value")
@@ -224,7 +225,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                 })
             });
 
-        python_path_setting.addExtraButton((button) => {
+        const python_path_extrabutton = python_path_setting.addExtraButton((button) => {
             button
                 .setIcon("reset")
                 .setTooltip("Reset to default value")
@@ -268,7 +269,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                 })
             });
 
-        recoll_datadir_setting.addExtraButton((button) => {
+        const recoll_datadir_extrabutton = recoll_datadir_setting.addExtraButton((button) => {
             button
                 .setIcon("reset")
                 .setTooltip("Reset to default value")
@@ -312,7 +313,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                 })
             });
 
-        recoll_confdir_setting.addExtraButton((button) => {
+        const recoll_confdir_extrabutton = recoll_confdir_setting.addExtraButton((button) => {
             button
                 .setIcon("reset")
                 .setTooltip("Reset to default value")
@@ -370,7 +371,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                 })
             });
 
-        path_extensions_setting.addExtraButton((button) => {
+        const path_extensions_extrabutton = path_extensions_setting.addExtraButton((button) => {
             button
                 .setIcon("reset")
                 .setTooltip("Reset to default value")
@@ -381,6 +382,70 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                     this.plugin.debouncedSaveSettings();
                 });
         });
+
+        const disable_controller = (status:boolean) => {
+            recollindex_text.setDisabled(status);
+            recollindex_extrabutton.setDisabled(status);
+
+            recollq_text.setDisabled(status);
+            recollq_extrabutton.setDisabled(status);
+
+            python_path_text.setDisabled(status);
+            python_path_extrabutton.setDisabled(status);
+
+            recoll_datadir_text.setDisabled(status);
+            recoll_datadir_extrabutton.setDisabled(status);
+
+            recoll_confdir_text.setDisabled(status);
+            recoll_confdir_extrabutton.setDisabled(status);
+
+            path_extensions_text.setDisabled(status);
+            path_extensions_extrabutton.setDisabled(status);
+
+            if(status) {
+                recoll_engine_paths_heading.descEl.classList.add('mod-warning');
+            } else {
+                recoll_engine_paths_heading.descEl.classList.remove('mod-warning');
+            }
+        };
+
+
+        let busy = false;
+        // Function to update the status
+        const updateStatus = async (force?:boolean) => {
+            if(busy) return;
+            busy = true;
+            let recollindex_status = previous_recollindex_status;
+            try{
+                recollindex_status = recoll.isRecollindexRunning();
+                if(!force && recollindex_status===previous_recollindex_status) return;
+                
+                if(recollindex_status) {
+                    status_span.classList.remove('mod-warning');
+                    status_span.classList.add('mod-success')
+                    status_span.innerText = RUNNING;
+                    status_button.setButtonText("Stop");
+                    status_button.setTooltip("Stop recollindex");
+                    disable_controller(true);
+                } else {
+                    status_span.classList.remove('mod-success');
+                    status_span.classList.add('mod-warning')
+                    status_span.innerText = NOT_RUNNING;
+                    status_button.setButtonText("Start");
+                    status_button.setTooltip("Start recollindex");
+                    disable_controller(false);
+                }
+            } finally {
+                previous_recollindex_status = recollindex_status;
+                busy = false;
+            }
+        }
+
+        // Set an interval to update the status every 300 milliseconds
+        setInterval(updateStatus, 200);
+
+        // First call to configure the initial status
+        updateStatus(true);
 
         new Setting(containerEl).setName('Indexing of MarkDown notes').setHeading();
 
