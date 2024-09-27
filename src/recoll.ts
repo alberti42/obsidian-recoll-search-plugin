@@ -176,13 +176,13 @@ async function queuedRunRecollIndex(settings:Omit<RecollSearchSettings, 'localSe
     // Remove listeners if these were set
     removeListeners();
 
-    const recollindex_cmd = localSettings.recollindexCmd;
+    const recollindex_cmd = plugin.replacePlaceholders(localSettings.recollindexCmd);
 
     if (recollindex_cmd === "") return;
 
-    const pythonPath = localSettings.pythonPath;
-    const recollDataDir = localSettings.recollDataDir;
-    const pathExtension = localSettings.pathExtensions.join(':');
+    const pythonPath = plugin.replacePlaceholders(localSettings.pythonPath);
+    const recollDataDir = plugin.replacePlaceholders(localSettings.recollDataDir);
+    const pathExtension = plugin.replacePlaceholders(localSettings.pathExtensions.join(':'));
 
     // Stop the recollindex process if this wsa running.
     // We cannot have two sessions of recollindex runnning in parallel.
@@ -207,7 +207,7 @@ async function queuedRunRecollIndex(settings:Omit<RecollSearchSettings, 'localSe
     recollindexProcess = spawn(
             recollindex_cmd,
             [
-                ...['-m', '-O', '-w0', '-x', '-c', localSettings.recollConfDir],
+                ...['-m', '-O', '-w0', '-x', '-c', plugin.replacePlaceholders(localSettings.recollConfDir)],
                 ...recollindex_extra_options
             ], 
             {

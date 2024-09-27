@@ -15,11 +15,12 @@ const NOT_RUNNING = 'not running';
 export class RecollSearchSettingTab extends PluginSettingTab {
     plugin: RecollSearch;
 
-    private saveTimeout: number | null = null;
+    private vaultPath:string;
 
     constructor(app: App, plugin: RecollSearch) {
         super(app, plugin);
         this.plugin = plugin;
+        this.vaultPath = this.plugin.getVaultPath();
     }
 
     display(): void {
@@ -92,8 +93,8 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                     frag.appendText("You first need to stop recollindex to be able to change the configurations below. Use the placeholder ");
                     frag.createEl('code',{text:'${vault_path}', cls: 'recoll-search-selectable'});
                     frag.appendText(" if you need to construct a path relative to the vault (e.g., ");
-                    frag.createEl('code',{text:'${vault_path}/00 Meta/recoll/recoll.conf', cls: 'recoll-search-selectable'});
-                    frag.appendText(").");
+                    frag.createEl('code',{text:'${vault_path}/00 Meta/recoll', cls: 'recoll-search-selectable'});
+                    frag.appendText(" for the share/recoll directory).");
                 }));
 
         let recollindex_warning: HTMLElement;
@@ -117,7 +118,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                     // but simply as no input was provided yet
                     const isEmpty = value === "";
 
-                    if (!isEmpty && !await doesFileExists(value)) {
+                    if (!isEmpty && !await doesFileExists(this.plugin.replacePlaceholders(value))) {
                         recollindex_warning.textContent = "Please enter the path of an existing file.";
                         recollindex_warning.style.display = 'block';
                     } else {
@@ -162,7 +163,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                     // but simply as no input was provided yet
                     const isEmpty = value === "";
 
-                    if (!isEmpty && !await doesFileExists(value)) {
+                    if (!isEmpty && !await doesFileExists(this.plugin.replacePlaceholders(value))) {
                         recollq_warning.style.display = 'block';
                     } else {
                         // Hide the warning and save the valid value
@@ -214,7 +215,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                     // but simply as no input was provided yet
                     const isEmpty = value === "";
 
-                    if (!isEmpty && !await doesDirectoryExists(value)) {
+                    if (!isEmpty && !await doesDirectoryExists(this.plugin.replacePlaceholders(value))) {
                         python_path_warning.style.display = 'block';
                     } else {
                         // Hide the warning and save the valid value
@@ -258,7 +259,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                     // but simply as no input was provided yet
                     const isEmpty = value === "";
 
-                    if (!isEmpty && !await doesDirectoryExists(value)) {
+                    if (!isEmpty && !await doesDirectoryExists(this.plugin.replacePlaceholders(value))) {
                         recoll_datadir_warning.style.display = 'block';
                     } else {
                         // Hide the warning and save the valid value
@@ -283,7 +284,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
 
         let recoll_confdir_warning:HTMLElement;
         const recoll_confdir_setting = new Setting(containerEl)
-            .setName("Path to share/recoll directory")
+            .setName("Path to RECOLL_CONFDIR directory")
             .setDesc(createFragment((frag:DocumentFragment) => {
                 frag.appendText("Absolute path (RECOLL_CONFDIR) to recoll configuration directory on your computer.");
                 frag.appendChild(createEl('p',{text:LOCALHOST_SETTING}));
@@ -295,14 +296,14 @@ export class RecollSearchSettingTab extends PluginSettingTab {
         let recoll_confdir_text:TextComponent;
         recoll_confdir_setting.addText(text => {
                 recoll_confdir_text = text;
-                text.setPlaceholder('/usr/local/share/recoll')
+                text.setPlaceholder('~/.recoll')
                 .setValue(this.plugin.localSettings.recollConfDir)
                 .onChange(async (value) => {
                     // when the field is empty, we don't consider it as an error,
                     // but simply as no input was provided yet
                     const isEmpty = value === "";
 
-                    if (!isEmpty && !await doesDirectoryExists(value)) {
+                    if (!isEmpty && !await doesDirectoryExists(this.plugin.replacePlaceholders(value))) {
                         recoll_confdir_warning.style.display = 'block';
                     } else {
                         // Hide the warning and save the valid value
@@ -354,7 +355,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                         // but simply as no input was provided yet
                         const isEmpty = path === "";
 
-                        if (!isEmpty && !await doesDirectoryExists(path)) {
+                        if (!isEmpty && !await doesDirectoryExists(this.plugin.replacePlaceholders(path))) {
                             return `Directory '${path}' does not exist.`;
                         } else return null;
                     }))).filter((error:string|null): error is string => error !==null );

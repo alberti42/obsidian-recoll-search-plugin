@@ -29,6 +29,8 @@ import { RecollqSearchModal } from "RecollqSearchModal";
 
 import { RecollSearchSettingTab } from "settings";
 
+import { homedir } from "os";
+
 // Main plugin class
 export default class RecollSearch extends Plugin {
 	settings: RecollSearchSettings = { ...DEFAULT_SETTINGS };
@@ -40,7 +42,8 @@ export default class RecollSearch extends Plugin {
     private sigterm_cb: ((...args: any[]) => void) | null = null;
     private file_menu_cb: FileMenuCallback | null = null;
 
-    private vaultPath: string = "";
+    private vaultPath: string;
+    private homeDir: string;
     
      // Declare class methods that will be initialized in the constructor
     debouncedSaveSettings: (callback?: () => void) => void;
@@ -48,6 +51,9 @@ export default class RecollSearch extends Plugin {
 
 	constructor(app: App, manifest: PluginManifest) {
 		super(app, manifest);
+
+        this.vaultPath = this.getVaultPath();
+        this.homeDir = homedir();
 
         // Set up debounced saving functions
         const timeout_debounced_saving_ms = 100;
@@ -236,5 +242,10 @@ export default class RecollSearch extends Plugin {
                 console.error("Could not save the settings:",error)    
             }
         }
+    }
+
+    // util function replacing placeholders in paths
+    replacePlaceholders(path:string):string {
+        return path.replace(/\$\{vault_path\}/g,this.vaultPath).replace(/\~/,this.homeDir);
     }
 }
