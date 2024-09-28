@@ -23,14 +23,15 @@ let plugin:RecollSearch;
 let recollindex_PID:number|undefined = undefined;
 let numExecAttemptsMade:number = 0;
 const maxNumExecAttemptsMade:number = 3;
-let queue: Promise<void> = Promise.resolve(); // use to avoid running `runRecollIndex` multiple times in parallel; initialized to be a resolved promise
+export let queue: Promise<void> = Promise.resolve(); // use to avoid running `runRecollIndex` multiple times in parallel; initialized to be a resolved promise
 
 export function setPluginReference(p:RecollSearch) {
     plugin = p;
 }
 
 export function isRecollindexRunning(): boolean {
-    if (recollindexProcess && recollindexProcess.pid && isProcessRunning(recollindexProcess.pid)) {
+    // if (recollindexProcess && recollindexProcess.pid && isProcessRunning(recollindexProcess.pid)) {
+    if (recollindex_PID && isProcessRunning(recollindex_PID)) {
         return true;
     } else {
         return false;
@@ -172,96 +173,105 @@ async function safeProcessTermination(): Promise<void> {
     recollindex_PID = undefined
 }
 
-async function queuedRunRecollIndex(settings:Omit<RecollSearchSettings, 'localSettings'>,localSettings:RecollSearchLocalSettings,recollindex_extra_options:string[]) {
-    // Remove listeners if these were set
-    removeListeners();
+async function queuedRunRecollIndex(
+    settings:Omit<RecollSearchSettings, 'localSettings'>,
+    localSettings:RecollSearchLocalSettings,
+    recollindex_extra_options:string[]):Promise<void> {
 
-    const recollindex_cmd = plugin.replacePlaceholders(localSettings.recollindexCmd);
+    return new Promise(async (resolve, reject) => {
+        // Remove listeners if these were set
+        removeListeners();
 
-    if (recollindex_cmd === "") return;
+        const recollindex_cmd = plugin.replacePlaceholders(localSettings.recollindexCmd);
 
-    const pythonPath = plugin.replacePlaceholders(localSettings.pythonPath);
-    const recollDataDir = plugin.replacePlaceholders(localSettings.recollDataDir);
-    const pathExtension = plugin.replacePlaceholders(localSettings.pathExtensions.join(':'));
+        if (recollindex_cmd === "") return;
 
-    // Stop the recollindex process if this wsa running.
-    // We cannot have two sessions of recollindex runnning in parallel.
-    await safeProcessTermination();
-    
-    // Depending on `plugin.settings.debug` we configure or not the pipe of stderr to the console
-    let stdErrOption: 'ignore' | 'pipe';
-    if(settings.debug) {
-        stdErrOption = 'pipe';
-    } else {
-        stdErrOption = 'ignore';
-    }
-    
-    // Spawn the recollindex process
-    // Option:
-    // -m:  real-time indexing
-    // -O:  similar to -D but it shutdown the recollindex process if the process gets detached from its parent
-    // -w0: start indexing with 0 second delay
-    // -x:  process will stay alive even if it cannot connect to the X11 server, which is here not needed
-    // -c <configdir> : specify configuration directory, overriding $RECOLL_CONFDIR.
-    // -z : reset database before starting indexing
-    recollindexProcess = spawn(
-            recollindex_cmd,
-            [
-                ...['-m', '-O', '-w0', '-x', '-c', plugin.replacePlaceholders(localSettings.recollConfDir)],
-                ...recollindex_extra_options
-            ], 
-            {
-                env: {
-                    ...process.env,
-                    RCLMD_CREATED: settings.createdLabel,
-                    RCLMD_MODIFIED: settings.modifiedLabel,
-                    RCLMD_DATEFORMAT: settings.datetimeFormat,
-                    PATH: `${pathExtension}:${process.env.PATH}`, // Ensure Homebrew Python and binaries are in the PATH
-                    PYTHONPATH: pythonPath, // Add the path to custom Python packages
-                    RECOLL_DATADIR: recollDataDir,  // Add the path to recoll's share folder
-                },
-                detached: true, // Allow the process to run independently of its parent
-                stdio: ['ignore','ignore', stdErrOption], // Ignore stdin, but allow stderr for logging
-            });
-    
-    errorListener =  (error:Error) => {
-        attemptNewStart(`recollindex process unexpectedly exited: ${error.message}`);
-    };
-    recollindexProcess.on('error', errorListener);
+        const pythonPath = plugin.replacePlaceholders(localSettings.pythonPath);
+        const recollDataDir = plugin.replacePlaceholders(localSettings.recollDataDir);
+        const pathExtension = plugin.replacePlaceholders(localSettings.pathExtensions.join(':'));
 
-    // Set up the listeners for the running process
-    if(recollindexProcess && recollindexProcess.pid) {
-        if(settings.debug) {
-            stderrListener = (data:Buffer) => {
-                // recoll surprisingly uses stderr for printing ordinary logs
-                // thus, we redirect stderr to the ordinary console
-                // this property can be changed in recoll.conf, but I'd rather
-                // preserve in recoll.conf the standard behavior, i.e., stderr,
-                // because people are familiar with it.
-                console.log(data.toString('utf8'));
-            };
-            if(recollindexProcess.stderr) recollindexProcess.stderr.on('data',stderrListener)
-        };
+        // Stop the recollindex process if this wsa running.
+        // We cannot have two sessions of recollindex runnning in parallel.
+        await safeProcessTermination();
         
-        closeListener = (code) => {
-            if(code!=null) attemptNewStart(`recollindex process exited with code ${code}`);
+        // Depending on `plugin.settings.debug` we configure or not the pipe of stderr to the console
+        let stdErrOption: 'ignore' | 'pipe';
+        if(settings.debug) {
+            stdErrOption = 'pipe';
+        } else {
+            stdErrOption = 'ignore';
+        }
+        
+        // Spawn the recollindex process
+        // Option:
+        // -m:  real-time indexing
+        // -O:  similar to -D but it shutdown the recollindex process if the process gets detached from its parent
+        // -w0: start indexing with 0 second delay
+        // -x:  process will stay alive even if it cannot connect to the X11 server, which is here not needed
+        // -c <configdir> : specify configuration directory, overriding $RECOLL_CONFDIR.
+        // -z : reset database before starting indexing
+        recollindexProcess = spawn(
+                recollindex_cmd,
+                [
+                    ...['-m', '-O', '-w0', '-x', '-c', plugin.replacePlaceholders(localSettings.recollConfDir)],
+                    ...recollindex_extra_options
+                ], 
+                {
+                    env: {
+                        ...process.env,
+                        RCLMD_CREATED: settings.createdLabel,
+                        RCLMD_MODIFIED: settings.modifiedLabel,
+                        RCLMD_DATEFORMAT: settings.datetimeFormat,
+                        PATH: `${pathExtension}:${process.env.PATH}`, // Ensure Homebrew Python and binaries are in the PATH
+                        PYTHONPATH: pythonPath, // Add the path to custom Python packages
+                        RECOLL_DATADIR: recollDataDir,  // Add the path to recoll's share folder
+                    },
+                    detached: true, // Allow the process to run independently of its parent
+                    stdio: ['ignore','ignore', stdErrOption], // Ignore stdin, but allow stderr for logging
+                });
+        
+        errorListener =  (error:Error) => {
+            attemptNewStart(`recollindex process unexpectedly exited: ${error.message}`,resolve);
         };
-        recollindexProcess.on('close', closeListener);
-    
-        // We now started the process; however, it may quit soon after if some problem occurs
-        recollindex_PID = recollindexProcess.pid;
-        console.log(`Successfully started the recollindex process with PID: ${recollindex_PID}.`)
-    } else {
-        // We do not need to handle the error here. Instead, it will be caught by `errorListener``
-    }
+        recollindexProcess.on('error', errorListener);
 
-    // We wait for 30 seconds. If no error is detected, we reset `numExecAttemptsMade`
-    setTimeout(()=>{
-        numExecAttemptsMade = 0;
-    }, 30*1000);
+        // Set up the listeners for the running process
+        if(recollindexProcess && recollindexProcess.pid) {
+            if(settings.debug) {
+                stderrListener = (data:Buffer) => {
+                    // recoll surprisingly uses stderr for printing ordinary logs
+                    // thus, we redirect stderr to the ordinary console
+                    // this property can be changed in recoll.conf, but I'd rather
+                    // preserve in recoll.conf the standard behavior, i.e., stderr,
+                    // because people are familiar with it.
+                    console.log(data.toString('utf8'));
+                };
+                if(recollindexProcess.stderr) recollindexProcess.stderr.on('data',stderrListener)
+            };
+            
+            closeListener = (code) => {
+                if(code!=null) attemptNewStart(`recollindex process exited with code ${code}`,resolve);
+            };
+            recollindexProcess.on('close', closeListener);
+        
+            // We now started the process; however, it may quit soon after if some problem occurs
+            recollindex_PID = recollindexProcess.pid;
+            console.log(`Successfully started the recollindex process with PID: ${recollindex_PID}.`)
+
+            // Resolve the promise when the process is successfully started
+            resolve();
+        } else {
+            // We do not need to handle the error here. Instead, it will be caught by `errorListener``
+        }
+
+        // We wait for 30 seconds. If no error is detected, we reset `numExecAttemptsMade`
+        setTimeout(()=>{
+            numExecAttemptsMade = 0;
+        }, 30*1000);
+    });
 }
 
-async function attemptNewStart(msg:string) {
+async function attemptNewStart(msg:string, resolve_fnc:((value:void | PromiseLike<void>)=>void)) {
     if(numExecAttemptsMade < 3) { // an error occurred
         const pause = 5000;
         numExecAttemptsMade++;
@@ -270,6 +280,8 @@ We now pause for ${Math.round(pause/1000)}s and then proceed with attempt ${numE
 
         // add a delay and restart the process
         await delay(pause);
+        // resolve the promise before attempting to run recollindex again; otherwise we are stuck in the queue
+        resolve_fnc();
         runRecollIndex();
     } else {
         new Notice('recollindex process terminated unexpectedly');
@@ -291,8 +303,7 @@ export async function runRecollIndex(recollindex_extra_options:string[] = []): P
     await queue;
 }
 
-// Call this function when the plugin is unloaded
-export async function stopRecollIndex(): Promise<void> {
+async function queuedStopRecollIndex() {
     if (recollindexProcess) {
         // note: we first remove the listeners, so there will be no
         // attempt from `closeListener` to keep the process alive
@@ -302,4 +313,13 @@ export async function stopRecollIndex(): Promise<void> {
         recollindexProcess = null;
         recollindex_PID = undefined;
     }
+}
+
+// Call this function when the plugin is unloaded
+export async function stopRecollIndex(): Promise<void> {
+    // Update the queue to include the current execution
+    queue = queue.then(()=>queuedStopRecollIndex());
+
+    // Wait for the current execution to finish before allowing the next one
+    await queue;
 }

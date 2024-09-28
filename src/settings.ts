@@ -49,14 +49,28 @@ export class RecollSearchSettingTab extends PluginSettingTab {
             status_button = button;
             button
             .setCta()
-            .onClick((evt:MouseEvent) => {
+            .setDisabled(true)
+            .onClick(async (evt:MouseEvent) => {
                 if(previous_recollindex_status) {
-                    recoll.stopRecollIndex();
+                    button.setDisabled(true);
+                    await recoll.stopRecollIndex();
+                    await recoll.queue;
+                    button.setDisabled(false);
                 } else {
-                    recoll.runRecollIndex();
+                    button.setDisabled(true);
+                    await recoll.runRecollIndex();
+                    await recoll.queue;
+                    button.setDisabled(false);
                 }
-            })
-        })
+            });
+
+            (async () => {
+                // Enable the button only once there is not current operation going on
+                await recoll.queue;
+                status_button.setDisabled(false);
+            })();
+        });
+
 
         const debug_setting = new Setting(containerEl)
             .setName('Show debug infos')
@@ -450,6 +464,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
 
         new Setting(containerEl).setName('Indexing of MarkDown notes').setHeading();
 
+        /*
         const momentjs_format_setting = new Setting(containerEl)
             .setName('Date format used in frontmatter (Javascript momentjs):')
             .setDesc(createFragment((frag) => {
@@ -523,7 +538,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                 });
         });
 
-
+        */
 
         const create_label_setting = new Setting(containerEl)
             .setName("Creation date label")
@@ -669,9 +684,6 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                     this.plugin.debouncedSaveSettings();
                 });
         });
-
-
-
     }
 
     hide(): void {   
