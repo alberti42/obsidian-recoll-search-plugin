@@ -54,12 +54,10 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                 if(previous_recollindex_status) {
                     button.setDisabled(true);
                     await recoll.stopRecollIndex();
-                    await recoll.queue;
                     button.setDisabled(false);
                 } else {
                     button.setDisabled(true);
                     await recoll.runRecollIndex();
-                    await recoll.queue;
                     button.setDisabled(false);
                 }
             });
@@ -87,7 +85,9 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                 this.plugin.settings.debug = value;
                 this.plugin.debouncedSaveSettings();
                 this.plugin.addDebugCommands(value);
-                recoll.runRecollIndex();
+                status_button.setDisabled(true);
+                await recoll.runRecollIndex();
+                status_button.setDisabled(false);
             })
         });
 
