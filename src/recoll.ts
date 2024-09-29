@@ -182,9 +182,6 @@ async function queuedRunRecollIndex(
         // Remove listeners if these were set
         removeListeners();
 
-        console.log(plugin.isConfigured());
-        if(!plugin.isConfigured()) return;
-
         const recollindex_cmd = plugin.replacePlaceholders(localSettings.recollindexCmd);
         
         const pythonPath = plugin.replacePlaceholders(localSettings.pythonPath);
@@ -294,6 +291,8 @@ If you have not already done so, switch to debug mode, start the process manuall
 }
 
 export async function runRecollIndex(recollindex_extra_options:string[] = []): Promise<void> {
+    if(!plugin.isConfigured()) return;
+
     // For efficiency remove local settings from the copy
     const { localSettings:_, ...settingsWithoutLocalSettings } = plugin.settings;
     

@@ -2,7 +2,7 @@
 
 import { DEFAULT_LOCAL_SETTINGS, DEFAULT_SETTINGS } from "default";
 import RecollSearch from "main";
-import { App, ButtonComponent, Component, DropdownComponent, ExtraButtonComponent, Platform, PluginSettingTab, Setting, TextComponent, ToggleComponent } from "obsidian";
+import { App, ButtonComponent, Component, DropdownComponent, ExtraButtonComponent, Notice, Platform, PluginSettingTab, Setting, TextComponent, ToggleComponent } from "obsidian";
 
 import * as recoll from "recoll"
 import { AltKeyBehavior } from "types";
@@ -56,17 +56,25 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                     await recoll.stopRecollIndex();
                     button.setDisabled(false);
                 } else {
-                    button.setDisabled(true);
-                    await recoll.runRecollIndex();
-                    button.setDisabled(false);
+                    if(this.plugin.isConfigured()) {
+                        button.setDisabled(true);
+                        await recoll.runRecollIndex();
+                        button.setDisabled(false);
+                    } else {
+                        new Notice("recollindex cannot start until all paths are configured")
+                    }
                 }
             });
 
-            (async () => {
-                // Enable the button only once there is not current operation going on
-                await recoll.queue;
+            if(this.plugin.isConfigured()) {
+                (async () => {
+                    // Enable the button only once there is not current operation going on
+                    await recoll.queue;
+                    status_button.setDisabled(false);
+                })();    
+            } else {
                 status_button.setDisabled(false);
-            })();
+            }
         });
 
 
@@ -85,9 +93,11 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                 this.plugin.settings.debug = value;
                 this.plugin.debouncedSaveSettings();
                 this.plugin.addDebugCommands(value);
-                status_button.setDisabled(true);
-                await recoll.runRecollIndex();
-                status_button.setDisabled(false);
+                if(previous_recollindex_status && this.plugin.isConfigured()) {
+                    status_button.setDisabled(true);
+                    await recoll.runRecollIndex();
+                    status_button.setDisabled(false);    
+                }
             })
         });
 
