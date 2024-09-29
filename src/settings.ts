@@ -15,12 +15,9 @@ const NOT_RUNNING = 'not running';
 export class RecollSearchSettingTab extends PluginSettingTab {
     plugin: RecollSearch;
 
-    private vaultPath:string;
-
     constructor(app: App, plugin: RecollSearch) {
         super(app, plugin);
         this.plugin = plugin;
-        this.vaultPath = this.plugin.getVaultPath();
     }
 
     display(): void {
@@ -67,16 +64,13 @@ export class RecollSearchSettingTab extends PluginSettingTab {
             });
 
             if(this.plugin.isConfigured()) {
-                (async () => {
-                    // Enable the button only once there is not current operation going on
-                    await recoll.queue;
+                recoll.queue.then(() => {
                     status_button.setDisabled(false);
-                })();    
+                });
             } else {
                 status_button.setDisabled(false);
             }
         });
-
 
         const debug_setting = new Setting(containerEl)
             .setName('Show debug infos')
