@@ -244,6 +244,13 @@ export default class RecollSearch extends Plugin {
         }
     }
 
+    isConfigured():boolean {
+        return this.localSettings.recollindexCmd !== ""
+            && this.localSettings.recollqCmd !== ""
+            && this.localSettings.pythonPath !== ""
+            && this.localSettings.recollDataDir !== "";
+    }
+
     // util function replacing placeholders in paths
     replacePlaceholders(path:string):string {
         return path.replace(/\$\{vault_path\}/g,this.vaultPath).replace(/\~/,this.homeDir);

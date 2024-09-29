@@ -182,10 +182,11 @@ async function queuedRunRecollIndex(
         // Remove listeners if these were set
         removeListeners();
 
+        console.log(plugin.isConfigured());
+        if(!plugin.isConfigured()) return;
+
         const recollindex_cmd = plugin.replacePlaceholders(localSettings.recollindexCmd);
-
-        if (recollindex_cmd === "") return;
-
+        
         const pythonPath = plugin.replacePlaceholders(localSettings.pythonPath);
         const recollDataDir = plugin.replacePlaceholders(localSettings.recollDataDir);
         const pathExtension = plugin.replacePlaceholders(localSettings.pathExtensions.join(':'));
