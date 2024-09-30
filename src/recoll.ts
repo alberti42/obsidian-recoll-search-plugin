@@ -237,6 +237,20 @@ async function queuedRunRecollIndex(
             stdErrOption = 'ignore';
         }
         
+        const env = {
+            ...process.env,
+            RCLMD_CREATED: settings.createdLabel,
+            RCLMD_MODIFIED: settings.modifiedLabel,
+            RCLMD_DATEFORMAT: settings.datetimeFormat,
+            PATH, // Ensure Homebrew Python and binaries are in the PATH
+            PYTHONPATH: pythonPath, // Add the path to custom Python packages
+            RECOLL_DATADIR: recollDataDir,  // Add the path to recoll's share folder
+        };
+
+        if(settings.debug) {
+            console.log({'desc':'The environment variables used to spawn recollindex process','env': env});
+        }
+
         // Spawn the recollindex process
         // Option:
         // -m:  real-time indexing
@@ -252,15 +266,7 @@ async function queuedRunRecollIndex(
                     ...recollindex_extra_options
                 ], 
                 {
-                    env: {
-                        ...process.env,
-                        RCLMD_CREATED: settings.createdLabel,
-                        RCLMD_MODIFIED: settings.modifiedLabel,
-                        RCLMD_DATEFORMAT: settings.datetimeFormat,
-                        PATH, // Ensure Homebrew Python and binaries are in the PATH
-                        PYTHONPATH: pythonPath, // Add the path to custom Python packages
-                        RECOLL_DATADIR: recollDataDir,  // Add the path to recoll's share folder
-                    },
+                    env,
                     detached: true, // Allow the process to run independently of its parent
                     stdio: ['ignore','ignore', stdErrOption], // Ignore stdin, but allow stderr for logging
                 });
