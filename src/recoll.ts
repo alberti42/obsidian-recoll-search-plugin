@@ -194,8 +194,6 @@ async function queuedRunRecollIndex(
                 : localSettings.pathExtensions
             ).join(':');
         
-        const ldLibraryPathExtension = plugin.replacePlaceholders(localSettings.libraryPath.join(':'));
-        
         let LIBRARY_PATH: { [key: string]: string } = {};
         let ORIG_LIBRARY_PATH: string | undefined;
         let LIBRARY_KEYWORD: 'DYLD_LIBRARY_PATH' | 'LD_LIBRARY_PATH' | undefined;
