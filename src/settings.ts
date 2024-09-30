@@ -213,9 +213,9 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                 are needed to index your documents, are also installed. You can create a virtual environment by typing on your terminal:");
                 frag.appendChild(createEl('pre',{text: "python3 -m venv YOUR_LOCAL_FOLDER", cls: 'recoll-search-selectable'}));
                 frag.appendText('where YOUR_LOCAL_FOLDER must be replaced with the intended location on your computer (e.g., ');
-                frag.appendChild(createEl('em',{text: "/home/your_user/.local/share/recoll/venv", cls: 'recoll-search-selectable'}));
+                frag.appendChild(createEl('code',{text: "/home/your_user/.local/share/recoll/venv", cls: 'recoll-search-selectable'}));
                 frag.appendText('). If you followed these instrucitons, you should enter here ');
-                frag.appendChild(createEl('em',{text: "YOUR_LOCAL_FOLDER/lib/python3.XYZ/site-packages", cls: 'recoll-search-selectable'}));
+                frag.appendChild(createEl('code',{text: "YOUR_LOCAL_FOLDER/lib/python3.XYZ/site-packages", cls: 'recoll-search-selectable'}));
                 frag.appendText(', where python3.XYZ should be adjusted to the python version your are currenty using.');
                 frag.appendChild(createEl('p',{text:LOCALHOST_SETTING}));
                 python_path_warning = createEl('p',{cls:'mod-warning', text:'Please enter the path of an existing file.'});
@@ -401,62 +401,90 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                 });
         });
 
-        let ld_library_path_extensions_warning:HTMLElement;
-        const ld_library_path_extensions_setting = new Setting(containerEl)
-            .setName("Directories to be added to $LD_LIBRARY_PATH")
-            .setDesc(createFragment((frag:DocumentFragment) => {
-                frag.appendText("List of absolute paths to directories separated by ':' that are added to $LD_LIBRARY_PATH.");
-                frag.appendChild(createEl('p',{text:LOCALHOST_SETTING}));
-                ld_library_path_extensions_warning = createEl('p',{cls:'mod-warning'});
-                ld_library_path_extensions_warning.style.display = 'none';
-                frag.appendChild(ld_library_path_extensions_warning);
-            }));
-            
-        let ld_library_path_extensions_text:TextComponent;
-        ld_library_path_extensions_setting.addText(text => {
-                ld_library_path_extensions_text = text;
-                text.setPlaceholder('')
-                .setValue(this.plugin.localSettings.ldLibraryPath.join(':'))
-                .onChange(async (value) => {
+        let LIBRARY_KEYWORD: 'DYLD_LIBRARY_PATH' | 'LD_LIBRARY_PATH' | undefined;
+        let LIBNAME: string;
+        let LIBPATH_FINDER_COMMAND: string;
+        switch(this.plugin.platform) {
+        case 'mac':
+            LIBRARY_KEYWORD = 'DYLD_LIBRARY_PATH';
+            LIBNAME = 'librecoll.XYZ.dylib';
+            LIBPATH_FINDER_COMMAND = 'otool -L';
+            break;
+        case 'linux':
+            LIBRARY_KEYWORD = 'LD_LIBRARY_PATH';
+            LIBNAME = 'librecoll.XYZ.lib';
+            LIBPATH_FINDER_COMMAND = 'ldd'
+            break;        
+        default:
+            LIBRARY_KEYWORD = undefined;
+            LIBNAME = 'librecoll.XYZ.dll';
+        }
 
-                    const paths = value.split(':');
+        let library_path_extensions_text:TextComponent;
+        let library_path_extensions_extrabutton:Setting;
+        if(LIBRARY_KEYWORD) {
+            let library_path_extensions_warning:HTMLElement;
+            const library_path_extensions_setting = new Setting(containerEl)
+                .setName(`Directories to be added to ${LIBRARY_KEYWORD}`)
+                .setDesc(createFragment((frag:DocumentFragment) => {
+                    frag.appendText(`List of absolute paths to directories separated by ':' that are added to ${LIBRARY_KEYWORD}.`);
+                    frag.appendText('Normally, you can leave this field empty. However, if the library');
+                    frag.createEl('code', {text:LIBNAME, cls: 'recoll-search-selectable'});
+                    frag.appendText(' resides in a nonstandard location, you must provide the path explicitly. \
+                        You can find the correct path typing the command in the terminal:');
+                    frag.createEl('pre', {text:`${LIBPATH_FINDER_COMMAND} <PATH_TO_RECOLLINDEX>`, cls: 'recoll-search-selectable'});
+                    frag.appendChild(createEl('p',{text:LOCALHOST_SETTING}));
+                    library_path_extensions_warning = createEl('p',{cls:'mod-warning'});
+                    library_path_extensions_warning.style.display = 'none';
+                    frag.appendChild(library_path_extensions_warning);
+                }));
+                
+            library_path_extensions_setting.addText(text => {
+                    library_path_extensions_text = text;
+                    text.setPlaceholder('')
+                    .setValue(this.plugin.localSettings.libraryPath.join(':'))
+                    .onChange(async (value) => {
 
-                    const errors = (await Promise.all(paths.map(async (path:string):Promise<string|null> => {
-                        // Remove any previous warning text
-                        ld_library_path_extensions_warning.textContent = '';
-                        
-                        // when the field is empty, we don't consider it as an error,
-                        // but simply as no input was provided yet
-                        const isEmpty = path === "";
+                        const paths = value.split(':');
 
-                        if (!isEmpty && !await doesDirectoryExists(this.plugin.replacePlaceholders(path))) {
-                            return `Directory '${path}' does not exist.`;
-                        } else return null;
-                    }))).filter((error:string|null): error is string => error !==null );
+                        const errors = (await Promise.all(paths.map(async (path:string):Promise<string|null> => {
+                            // Remove any previous warning text
+                            library_path_extensions_warning.textContent = '';
+                            
+                            // when the field is empty, we don't consider it as an error,
+                            // but simply as no input was provided yet
+                            const isEmpty = path === "";
 
-                    if(errors.length>0) {
-                        ld_library_path_extensions_warning.innerHTML = errors.join('<br>');
-                        ld_library_path_extensions_warning.style.display = 'block';
-                    } else {
-                        // Hide the warning and save the valid value
-                        ld_library_path_extensions_warning.style.display = 'none';
-                        this.plugin.localSettings.ldLibraryPath = paths.filter((path:string) => path !== "");
-                        this.plugin.debouncedSaveSettings();
-                    }
-                })
-            });
+                            if (!isEmpty && !await doesDirectoryExists(this.plugin.replacePlaceholders(path))) {
+                                return `Directory '${path}' does not exist.`;
+                            } else return null;
+                        }))).filter((error:string|null): error is string => error !==null );
 
-        const ld_library_path_extensions_extrabutton = ld_library_path_extensions_setting.addExtraButton((button) => {
-            button
-                .setIcon("reset")
-                .setTooltip("Reset to default value")
-                .onClick(() => {
-                    const values = DEFAULT_LOCAL_SETTINGS.ldLibraryPath;
-                    recoll_datadir_text.setValue(values.join(':'));
-                    this.plugin.localSettings.ldLibraryPath = values;
-                    this.plugin.debouncedSaveSettings();
+                        if(errors.length>0) {
+                            library_path_extensions_warning.innerHTML = errors.join('<br>');
+                            library_path_extensions_warning.style.display = 'block';
+                        } else {
+                            // Hide the warning and save the valid value
+                            library_path_extensions_warning.style.display = 'none';
+                            this.plugin.localSettings.libraryPath = paths.filter((path:string) => path !== "");
+                            this.plugin.debouncedSaveSettings();
+                        }
+                    })
                 });
-        });
+
+            library_path_extensions_extrabutton = library_path_extensions_setting.addExtraButton((button) => {
+                button
+                    .setIcon("reset")
+                    .setTooltip("Reset to default value")
+                    .onClick(() => {
+                        const values = DEFAULT_LOCAL_SETTINGS.libraryPath;
+                        recoll_datadir_text.setValue(values.join(':'));
+                        this.plugin.localSettings.libraryPath = values;
+                        this.plugin.debouncedSaveSettings();
+                    });
+            });
+        }
+        
 
         const disable_controller = (status:boolean) => {
             recollindex_text.setDisabled(status);
@@ -477,9 +505,11 @@ export class RecollSearchSettingTab extends PluginSettingTab {
             path_extensions_text.setDisabled(status);
             path_extensions_extrabutton.setDisabled(status);
 
-            ld_library_path_extensions_text.setDisabled(status);
-            ld_library_path_extensions_extrabutton.setDisabled(status);
-
+            if(LIBRARY_KEYWORD) {
+                library_path_extensions_text.setDisabled(status);
+                library_path_extensions_extrabutton.setDisabled(status);
+            }
+            
             if(status) {
                 recoll_engine_paths_heading.descEl.classList.add('mod-warning');
             } else {

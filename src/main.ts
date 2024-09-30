@@ -35,7 +35,9 @@ import { homedir } from "os";
 export default class RecollSearch extends Plugin {
 	settings: RecollSearchSettings = { ...DEFAULT_SETTINGS };
     localSettings: RecollSearchLocalSettings = { ...DEFAULT_LOCAL_SETTINGS };
-    MACaddress!: string; // initialized by `this.loadSettings()`
+    MACaddress!: string; // initialized by `this.loadSettings()` in constructor
+    identifier!: string; // initialized by `this.loadSettings()` in constructor
+    platform: string;
     
     private exit_cb: NodeJS.ExitListener | null = null;
     private sigint_cb: ((...args: any[]) => void) | null = null;
@@ -68,6 +70,18 @@ export default class RecollSearch extends Plugin {
         const adapter = this.app.vault.adapter;
         if (!(adapter instanceof FileSystemAdapter)) {
             throw new Error("The vault folder could not be determined.");
+        }
+
+        if(Platform.isMacOS) { 
+            this.platform = 'mac';
+        } else if(Platform.isWin) {
+            this.platform = 'win';
+        } else if(Platform.isLinux) {
+            this.platform = 'linux';
+        } else if(Platform.isMobile) {
+            this.platform = 'mobile';
+        } else {
+            this.platform = 'unknown';
         }
         
         recoll.setPluginReference(this);	
@@ -227,12 +241,13 @@ export default class RecollSearch extends Plugin {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
         const registered_MAC_addresses = Object.keys(this.settings.localSettings);
         this.MACaddress = getMACAddress(registered_MAC_addresses);
-        this.localSettings = Object.assign({}, DEFAULT_LOCAL_SETTINGS, this.settings.localSettings[this.MACaddress]);
+        this.identifier = `${this.MACaddress}:${this.platform}`;
+        this.localSettings = Object.assign({}, DEFAULT_LOCAL_SETTINGS, this.settings.localSettings[this.identifier]);
 	}
 
     async saveSettings() {
-        if(!this.MACaddress) return;
-        this.settings.localSettings[this.MACaddress] = this.localSettings;
+        if(!this.identifier) return;
+        this.settings.localSettings[this.identifier] = this.localSettings;
         try {
             await this.saveData(this.settings);
         } catch(error) {
@@ -247,7 +262,6 @@ export default class RecollSearch extends Plugin {
     isConfigured():boolean {
         return this.localSettings.recollindexCmd !== ""
             && this.localSettings.recollqCmd !== ""
-            && this.localSettings.pythonPath !== ""
             && this.localSettings.recollDataDir !== "";
     }
 

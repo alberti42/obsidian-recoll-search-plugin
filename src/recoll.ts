@@ -186,9 +186,45 @@ async function queuedRunRecollIndex(
         
         const pythonPath = plugin.replacePlaceholders(localSettings.pythonPath);
         const recollDataDir = plugin.replacePlaceholders(localSettings.recollDataDir);
-        const pathExtension = plugin.replacePlaceholders(localSettings.pathExtensions.join(':'));
-        const LD_LIBRARY_PATH = plugin.replacePlaceholders(localSettings.ldLibraryPath.join(':'));
 
+        
+        const PATH = 
+            (process.env.PATH
+                ? localSettings.pathExtensions.concat([process.env.PATH])
+                : localSettings.pathExtensions
+            ).join(':');
+        
+        const ldLibraryPathExtension = plugin.replacePlaceholders(localSettings.libraryPath.join(':'));
+        
+        let LIBRARY_PATH: { [key: string]: string } = {};
+        let ORIG_LIBRARY_PATH: string | undefined;
+        let LIBRARY_KEYWORD: 'DYLD_LIBRARY_PATH' | 'LD_LIBRARY_PATH' | undefined;
+        let NEW_LIBRARY_PATH: string;
+
+        switch(plugin.platform) {
+            case 'mac':
+                LIBRARY_KEYWORD = 'DYLD_LIBRARY_PATH';
+                break;
+            case 'linux':
+                LIBRARY_KEYWORD = 'LD_LIBRARY_PATH';
+                break;
+            default:
+                LIBRARY_KEYWORD = undefined;
+        }
+
+        if (LIBRARY_KEYWORD) {
+            ORIG_LIBRARY_PATH = process.env[LIBRARY_KEYWORD]; // Retrieve the original environment variable
+            NEW_LIBRARY_PATH = (ORIG_LIBRARY_PATH
+                    ? localSettings.libraryPath.concat([ORIG_LIBRARY_PATH])
+                    : localSettings.libraryPath
+                ).join(':');
+
+            if(NEW_LIBRARY_PATH!=='') {
+                // Create the new library path value, appending the original if it exists
+                LIBRARY_PATH[LIBRARY_KEYWORD] = NEW_LIBRARY_PATH;
+            }
+        }
+        
         // Stop the recollindex process if this wsa running.
         // We cannot have two sessions of recollindex runnning in parallel.
         await safeProcessTermination();
@@ -218,11 +254,10 @@ async function queuedRunRecollIndex(
                 {
                     env: {
                         ...process.env,
-                        LD_LIBRARY_PATH: `/usr/local/lib/x86_64-linux-gnu:${process.env.LD_LIBRARY_PATH}`,
                         RCLMD_CREATED: settings.createdLabel,
                         RCLMD_MODIFIED: settings.modifiedLabel,
                         RCLMD_DATEFORMAT: settings.datetimeFormat,
-                        PATH: `${pathExtension}:${process.env.PATH}`, // Ensure Homebrew Python and binaries are in the PATH
+                        PATH, // Ensure Homebrew Python and binaries are in the PATH
                         PYTHONPATH: pythonPath, // Add the path to custom Python packages
                         RECOLL_DATADIR: recollDataDir,  // Add the path to recoll's share folder
                     },
