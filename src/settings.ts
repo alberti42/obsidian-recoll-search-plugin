@@ -367,8 +367,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                     const errors = (await Promise.all(paths.map(async (path:string):Promise<string|null> => {
                         // Remove any previous warning text
                         path_extensions_warning.textContent = '';
-                        const parsedPath = parseFilePath(path);
-
+                        
                         // when the field is empty, we don't consider it as an error,
                         // but simply as no input was provided yet
                         const isEmpty = path === "";
@@ -402,6 +401,63 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                 });
         });
 
+        let ld_library_path_extensions_warning:HTMLElement;
+        const ld_library_path_extensions_setting = new Setting(containerEl)
+            .setName("Directories to be added to $LD_LIBRARY_PATH")
+            .setDesc(createFragment((frag:DocumentFragment) => {
+                frag.appendText("List of absolute paths to directories separated by ':' that are added to $LD_LIBRARY_PATH.");
+                frag.appendChild(createEl('p',{text:LOCALHOST_SETTING}));
+                ld_library_path_extensions_warning = createEl('p',{cls:'mod-warning'});
+                ld_library_path_extensions_warning.style.display = 'none';
+                frag.appendChild(ld_library_path_extensions_warning);
+            }));
+            
+        let ld_library_path_extensions_text:TextComponent;
+        ld_library_path_extensions_setting.addText(text => {
+                ld_library_path_extensions_text = text;
+                text.setPlaceholder('')
+                .setValue(this.plugin.localSettings.ldLibraryPath.join(':'))
+                .onChange(async (value) => {
+
+                    const paths = value.split(':');
+
+                    const errors = (await Promise.all(paths.map(async (path:string):Promise<string|null> => {
+                        // Remove any previous warning text
+                        ld_library_path_extensions_warning.textContent = '';
+                        
+                        // when the field is empty, we don't consider it as an error,
+                        // but simply as no input was provided yet
+                        const isEmpty = path === "";
+
+                        if (!isEmpty && !await doesDirectoryExists(this.plugin.replacePlaceholders(path))) {
+                            return `Directory '${path}' does not exist.`;
+                        } else return null;
+                    }))).filter((error:string|null): error is string => error !==null );
+
+                    if(errors.length>0) {
+                        ld_library_path_extensions_warning.innerHTML = errors.join('<br>');
+                        ld_library_path_extensions_warning.style.display = 'block';
+                    } else {
+                        // Hide the warning and save the valid value
+                        ld_library_path_extensions_warning.style.display = 'none';
+                        this.plugin.localSettings.ldLibraryPath = paths.filter((path:string) => path !== "");
+                        this.plugin.debouncedSaveSettings();
+                    }
+                })
+            });
+
+        const ld_library_path_extensions_extrabutton = ld_library_path_extensions_setting.addExtraButton((button) => {
+            button
+                .setIcon("reset")
+                .setTooltip("Reset to default value")
+                .onClick(() => {
+                    const values = DEFAULT_LOCAL_SETTINGS.ldLibraryPath;
+                    recoll_datadir_text.setValue(values.join(':'));
+                    this.plugin.localSettings.ldLibraryPath = values;
+                    this.plugin.debouncedSaveSettings();
+                });
+        });
+
         const disable_controller = (status:boolean) => {
             recollindex_text.setDisabled(status);
             recollindex_extrabutton.setDisabled(status);
@@ -420,6 +476,9 @@ export class RecollSearchSettingTab extends PluginSettingTab {
 
             path_extensions_text.setDisabled(status);
             path_extensions_extrabutton.setDisabled(status);
+
+            ld_library_path_extensions_text.setDisabled(status);
+            ld_library_path_extensions_extrabutton.setDisabled(status);
 
             if(status) {
                 recoll_engine_paths_heading.descEl.classList.add('mod-warning');

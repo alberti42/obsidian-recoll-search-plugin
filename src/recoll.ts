@@ -187,6 +187,7 @@ async function queuedRunRecollIndex(
         const pythonPath = plugin.replacePlaceholders(localSettings.pythonPath);
         const recollDataDir = plugin.replacePlaceholders(localSettings.recollDataDir);
         const pathExtension = plugin.replacePlaceholders(localSettings.pathExtensions.join(':'));
+        const LD_LIBRARY_PATH = plugin.replacePlaceholders(localSettings.ldLibraryPath.join(':'));
 
         // Stop the recollindex process if this wsa running.
         // We cannot have two sessions of recollindex runnning in parallel.
@@ -217,6 +218,7 @@ async function queuedRunRecollIndex(
                 {
                     env: {
                         ...process.env,
+                        LD_LIBRARY_PATH: `/usr/local/lib/x86_64-linux-gnu:${process.env.LD_LIBRARY_PATH}`,
                         RCLMD_CREATED: settings.createdLabel,
                         RCLMD_MODIFIED: settings.modifiedLabel,
                         RCLMD_DATEFORMAT: settings.datetimeFormat,

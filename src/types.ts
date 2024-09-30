@@ -22,6 +22,7 @@ export interface RecollSearchLocalSettings {
     recollDataDir: string;
     recollConfDir: string;
     pathExtensions: string[];
+    ldLibraryPath: string[]; 
     recollindexCmd: string;
     recollqCmd: string;
 }
