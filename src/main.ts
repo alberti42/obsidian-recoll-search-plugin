@@ -239,7 +239,15 @@ export default class RecollSearch extends Plugin {
 
 	async loadSettings() {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-        const registered_MAC_addresses = Object.keys(this.settings.localSettings);
+        const registered_MAC_addresses = Object.keys(this.settings.localSettings).map((MAC:string):string => {
+            const lastColonIndex = MAC.lastIndexOf(':');
+            // If a colon is found, remove everything after it, including the colon
+            if (lastColonIndex !== -1) {
+                return MAC.substring(0, lastColonIndex);
+            } else {
+                return MAC;
+            }
+        });
         this.MACaddress = getMACAddress(registered_MAC_addresses);
         this.identifier = `${this.MACaddress}:${this.platform}`;
         this.localSettings = Object.assign({}, DEFAULT_LOCAL_SETTINGS, this.settings.localSettings[this.identifier]);

@@ -13,14 +13,14 @@ export function getMACAddress(existingMACs:string[]): string {
         if (!parts) continue
         for (const part of parts) {
             if (zeroRegex.test(part.mac) === false) {
-                if(existingMACs.contains(part.mac)) return part.mac;
+                if(existingMACs.contains(part.mac)) return part.mac; // if already there, exit
                 if(found_mac===null) found_mac = part.mac; // record the first occurrance
             }
         }
     }
     if(found_mac) return found_mac;
     const fallback_MAC = '00-00-00-00-00-00';
-    console.error('Failed to get the MAC address. Using the fallback MAC address: ${fallback_MAC}')
+    console.warn('Failed to get the MAC address. Using the fallback MAC address: ${fallback_MAC}')
     return fallback_MAC;
 }
 
