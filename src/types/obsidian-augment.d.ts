@@ -6,6 +6,11 @@ declare module "obsidian" {
     interface App {
         plugins: Plugins;
         commands: Commands;
+        setting: Setting;
+    }
+
+    interface Setting {
+        activeTab: SettingTab;
     }
 
     interface Commands {

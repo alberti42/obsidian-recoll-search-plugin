@@ -237,6 +237,14 @@ export default class RecollSearch extends Plugin {
         }
     }
 
+    async onExternalSettingsChange() {
+        // Load settings
+        await this.loadSettings();
+
+        const activeTab = this.app.setting.activeTab;
+        if(activeTab && activeTab instanceof RecollSearchSettingTab) activeTab.display();
+    }
+
 	async loadSettings() {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
         const registered_MAC_addresses = Object.keys(this.settings.localSettings).map((MAC:string):string => {
