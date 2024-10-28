@@ -35,9 +35,8 @@ import { homedir } from "os";
 export default class RecollSearch extends Plugin {
 	settings: RecollSearchSettings = { ...DEFAULT_SETTINGS };
     localSettings: RecollSearchLocalSettings = { ...DEFAULT_LOCAL_SETTINGS };
-    MACaddress!: string; // initialized by `this.loadSettings()` in constructor
-    identifier!: string; // initialized by `this.loadSettings()` in constructor
     platform: string;
+    device_UUID: string; // unique ID assigned to each device
     
     private exit_cb: NodeJS.ExitListener | null = null;
     private sigint_cb: ((...args: any[]) => void) | null = null;
@@ -72,6 +71,15 @@ export default class RecollSearch extends Plugin {
             throw new Error("The vault folder could not be determined.");
         }
 
+        // Load the UUID of the current device running Obsidian session
+        let device_UUID:string|null = localStorage.getItem(this.manifest.id);
+        if (!device_UUID) {
+            device_UUID = crypto.randomUUID();
+            localStorage.setItem(this.manifest.id, device_UUID);
+        }
+        this.device_UUID = device_UUID;
+
+        // Check what is the current platform
         if(Platform.isMacOS) { 
             this.platform = 'mac';
         } else if(Platform.isWin) {
@@ -247,23 +255,12 @@ export default class RecollSearch extends Plugin {
 
 	async loadSettings() {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-        const registered_MAC_addresses = Object.keys(this.settings.localSettings).map((MAC:string):string => {
-            const lastColonIndex = MAC.lastIndexOf(':');
-            // If a colon is found, remove everything after it, including the colon
-            if (lastColonIndex !== -1) {
-                return MAC.substring(0, lastColonIndex);
-            } else {
-                return MAC;
-            }
-        });
-        this.MACaddress = getMACAddress(registered_MAC_addresses);
-        this.identifier = `${this.MACaddress}:${this.platform}`;
-        this.localSettings = Object.assign({}, DEFAULT_LOCAL_SETTINGS, this.settings.localSettings[this.identifier]);
+        this.localSettings = Object.assign({}, DEFAULT_LOCAL_SETTINGS, this.settings.localSettings[this.device_UUID]);
 	}
 
     async saveSettings() {
-        if(!this.identifier) return;
-        this.settings.localSettings[this.identifier] = this.localSettings;
+        if(!this.device_UUID) return;
+        this.settings.localSettings[this.device_UUID] = this.localSettings;
         try {
             await this.saveData(this.settings);
         } catch(error) {

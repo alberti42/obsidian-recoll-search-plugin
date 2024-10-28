@@ -82,6 +82,10 @@
   opacity: 0.7;
 }
 
+.recoll-search-settings code {
+	padding: 0;
+}
+
 @media (max-width: 1500px) {
 	/*
 	.recoll-search-item > div {

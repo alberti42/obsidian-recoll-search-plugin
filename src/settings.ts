@@ -21,7 +21,12 @@ export class RecollSearchSettingTab extends PluginSettingTab {
     }
 
     display(): void {
-        const LOCALHOST_SETTING = `This setting applies to this local host with MAC address ${this.plugin.MACaddress}.`;
+        const local_setting_label_factory = ()=>createFragment((frag:DocumentFragment)=> {
+            frag.appendText('This setting only applies to this device with UUID ');
+            const uuid_el = createEl('code',{text:this.plugin.device_UUID,cls:'recoll-search-selectable'});
+            frag.appendChild(uuid_el);
+            frag.appendText('.');
+        });
 
         const { containerEl } = this;
         
@@ -120,7 +125,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
             .setName("Path to recollindex utility")
             .setDesc(createFragment((frag:DocumentFragment) => {
                 frag.appendText("Absolute path to 'recollindex' utility on your computer.");
-                frag.appendChild(createEl('p',{text:LOCALHOST_SETTING}));
+                frag.appendChild(local_setting_label_factory());
                 recollindex_warning = createEl('p',{cls:'mod-warning', text:'Please enter the path of an existing file.'});
                 recollindex_warning.style.display = 'none';
                 frag.appendChild(recollindex_warning);
@@ -165,7 +170,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
             .setName("Path to recollq utility")
             .setDesc(createFragment((frag:DocumentFragment) => {
                 frag.appendText("Absolute path to 'recollq' utility on your computer.");
-                frag.appendChild(createEl('p',{text:LOCALHOST_SETTING}));
+                frag.appendChild(local_setting_label_factory());
                 recollq_warning = createEl('p',{cls:'mod-warning', text:'Please enter the path of an existing file.'});
                 recollq_warning.style.display = 'none';
                 frag.appendChild(recollq_warning);
@@ -217,7 +222,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                 frag.appendText('). If you followed these instrucitons, you should enter here ');
                 frag.appendChild(createEl('code',{text: "YOUR_LOCAL_FOLDER/lib/python3.XYZ/site-packages", cls: 'recoll-search-selectable'}));
                 frag.appendText(', where python3.XYZ should be adjusted to the python version your are currenty using.');
-                frag.appendChild(createEl('p',{text:LOCALHOST_SETTING}));
+                frag.appendChild(local_setting_label_factory());
                 python_path_warning = createEl('p',{cls:'mod-warning', text:'Please enter the path of an existing file.'});
                 python_path_warning.style.display = 'none';
                 frag.appendChild(python_path_warning);
@@ -261,7 +266,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
             .setName("Path to share/recoll directory")
             .setDesc(createFragment((frag:DocumentFragment) => {
                 frag.appendText("Absolute path (RECOLL_DATADIR) to recoll data directory 'share/recoll' on your computer.");
-                frag.appendChild(createEl('p',{text:LOCALHOST_SETTING}));
+                frag.appendChild(local_setting_label_factory());
                 recoll_datadir_warning = createEl('p',{cls:'mod-warning', text:'Please enter the path of an existing file.'});
                 recoll_datadir_warning.style.display = 'none';
                 frag.appendChild(recoll_datadir_warning);
@@ -305,7 +310,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
             .setName("Path to RECOLL_CONFDIR directory")
             .setDesc(createFragment((frag:DocumentFragment) => {
                 frag.appendText("Absolute path (RECOLL_CONFDIR) to recoll configuration directory on your computer.");
-                frag.appendChild(createEl('p',{text:LOCALHOST_SETTING}));
+                frag.appendChild(local_setting_label_factory());
                 recoll_confdir_warning = createEl('p',{cls:'mod-warning', text:'Please enter the path of an existing file.'});
                 recoll_confdir_warning.style.display = 'none';
                 frag.appendChild(recoll_confdir_warning);
@@ -349,7 +354,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
             .setName("Directories to be added to $PATH")
             .setDesc(createFragment((frag:DocumentFragment) => {
                 frag.appendText("List of absolute paths to directories separated by ':' that are added to $PATH.");
-                frag.appendChild(createEl('p',{text:LOCALHOST_SETTING}));
+                frag.appendChild(local_setting_label_factory());
                 path_extensions_warning = createEl('p',{cls:'mod-warning'});
                 path_extensions_warning.style.display = 'none';
                 frag.appendChild(path_extensions_warning);
@@ -433,7 +438,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                     frag.appendText(' resides in a nonstandard location, you must provide the path explicitly. \
                         You can find the correct path typing the command in the terminal:');
                     frag.createEl('pre', {text:`${LIBPATH_FINDER_COMMAND} <PATH_TO_RECOLLINDEX>`, cls: 'recoll-search-selectable'});
-                    frag.appendChild(createEl('p',{text:LOCALHOST_SETTING}));
+                    frag.appendChild(local_setting_label_factory());
                     library_path_extensions_warning = createEl('p',{cls:'mod-warning'});
                     library_path_extensions_warning.style.display = 'none';
                     frag.appendChild(library_path_extensions_warning);
