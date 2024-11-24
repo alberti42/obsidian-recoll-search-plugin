@@ -6,6 +6,8 @@ import { Notice } from 'obsidian';
 import { RecollSearchLocalSettings, RecollSearchSettings } from 'types';
 import { delay } from 'utils';
 
+import * as path from 'path'
+
 class TimeoutError extends Error {
     constructor(message: string = 'Process did not terminate within the timeout period.') {
         // Pass the message to the base Error class
@@ -184,20 +186,24 @@ async function queuedRunRecollIndex(
 
         const recollindex_cmd = plugin.replacePlaceholders(localSettings.recollindexCmd);
         
-        const pythonPath = plugin.replacePlaceholders(localSettings.pythonPath);
+        const virtualEnv = plugin.replacePlaceholders(localSettings.virtualEnv);
         const recollDataDir = plugin.replacePlaceholders(localSettings.recollDataDir);
 
-        
-        const PATH = 
-            (process.env.PATH
-                ? localSettings.pathExtensions.concat([process.env.PATH])
-                : localSettings.pathExtensions
-            ).join(':');
-        
-        let LIBRARY_PATH: { [key: string]: string } = {};
-        let ORIG_LIBRARY_PATH: string | undefined;
+        const virtualEnvBin = virtualEnv ? path.join(virtualEnv,'bin') : undefined;
+
+        const filter_strings = (s:string|undefined):boolean => {
+            if(s !== undefined) return true;
+            else return false;
+        };
+
+        const PATH = [
+                virtualEnvBin, 
+                ...localSettings.pathExtensions.map((s:string):string => plugin.replacePlaceholders(s)),
+                process.env.PATH
+            ].filter(filter_strings).join(':');
+                
         let LIBRARY_KEYWORD: 'DYLD_LIBRARY_PATH' | 'LD_LIBRARY_PATH' | undefined;
-        let NEW_LIBRARY_PATH: string;
+        let LIBRARY_PATH: string|undefined = undefined;
 
         switch(plugin.platform) {
             case 'mac':
@@ -211,16 +217,11 @@ async function queuedRunRecollIndex(
         }
 
         if (LIBRARY_KEYWORD) {
-            ORIG_LIBRARY_PATH = process.env[LIBRARY_KEYWORD]; // Retrieve the original environment variable
-            NEW_LIBRARY_PATH = (ORIG_LIBRARY_PATH
-                    ? localSettings.libraryPath.concat([ORIG_LIBRARY_PATH])
-                    : localSettings.libraryPath
-                ).join(':');
-
-            if(NEW_LIBRARY_PATH!=='') {
-                // Create the new library path value, appending the original if it exists
-                LIBRARY_PATH[LIBRARY_KEYWORD] = NEW_LIBRARY_PATH;
-            }
+            LIBRARY_PATH = [
+                    ...localSettings.libraryPath.map((s:string):string => plugin.replacePlaceholders(s)),
+                    process.env[LIBRARY_KEYWORD]
+                ].filter(filter_strings).join(':');
+            if(LIBRARY_PATH==='') LIBRARY_PATH = undefined;
         }
         
         // Stop the recollindex process if this wsa running.
@@ -241,8 +242,9 @@ async function queuedRunRecollIndex(
             RCLMD_MODIFIED: settings.modifiedLabel,
             RCLMD_DATEFORMAT: settings.datetimeFormat,
             PATH, // Ensure Homebrew Python and binaries are in the PATH
-            PYTHONPATH: pythonPath, // Add the path to custom Python packages
+            VIRTUAL_ENV: virtualEnv, // Add the path to custom Python packages
             RECOLL_DATADIR: recollDataDir,  // Add the path to recoll's share folder
+            ...(LIBRARY_KEYWORD && LIBRARY_PATH ? { [LIBRARY_KEYWORD]: LIBRARY_PATH } : {}), // Conditionally include LIBRARY_KEYWORD
         };
 
         if(settings.debug) {

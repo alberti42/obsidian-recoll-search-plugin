@@ -1,6 +1,5 @@
 // types.ts
 
-import { DEFAULT_SETTINGS } from "default";
 import { Menu, TAbstractFile, WorkspaceLeaf } from "obsidian";
 
 export interface RecollSearchSettings {
@@ -18,7 +17,7 @@ export interface RecollSearchSettings {
 }
 
 export interface RecollSearchLocalSettings {
-    pythonPath: string;
+    virtualEnv: string;
     recollDataDir: string;
     recollConfDir: string;
     pathExtensions: string[];

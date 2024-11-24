@@ -208,7 +208,8 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                     this.plugin.debouncedSaveSettings();
                 });
         });
-
+        
+/*
         let python_path_warning: HTMLElement;
         const python_path_setting = new Setting(containerEl)
             .setName("Path to site-packages directory")
@@ -223,7 +224,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                 frag.appendChild(createEl('code',{text: "YOUR_LOCAL_FOLDER/lib/python3.XYZ/site-packages", cls: 'recoll-search-selectable'}));
                 frag.appendText(', where python3.XYZ should be adjusted to the python version your are currenty using.');
                 frag.appendChild(local_setting_label_factory());
-                python_path_warning = createEl('p',{cls:'mod-warning', text:'Please enter the path of an existing file.'});
+                python_path_warning = createEl('p',{cls:'mod-warning', text:'Please enter the path of an existing directory.'});
                 python_path_warning.style.display = 'none';
                 frag.appendChild(python_path_warning);
             }));
@@ -260,6 +261,58 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                     this.plugin.debouncedSaveSettings();
                 });
         });
+*/
+        let virtual_env_warning: HTMLElement;
+        const virtual_env_setting = new Setting(containerEl)
+            .setName("Path to Python Virtual Environment directory")
+            .setDesc(createFragment((frag) => {
+                frag.appendText("Python virtual environment path (VIRTUAL_ENV) to 'venv' directory on your computer, which contains the python module 'recoll'. \
+                It is highly recommend to install Python's 'recoll' module in a virtual environment. There, you should install all other Python modules that \
+                are needed to index your documents. You can create a virtual environment by typing on your terminal:");
+                frag.appendChild(createEl('pre',{text: "python3 -m venv <YOUR_LOCAL_FOLDER>", cls: 'recoll-search-selectable'}));
+                frag.appendText('where <YOUR_LOCAL_FOLDER> should be replaced with the intended location on your local computer (e.g., ');
+                frag.appendChild(createEl('code',{text: "<your_vault>/.obsidian/recoll/venv", cls: 'recoll-search-selectable'}));
+                frag.appendText('). If you followed these instructions, you should enter here ');
+                frag.appendChild(createEl('code',{text: "${vault_path}/.obsidian/recoll/venv", cls: 'recoll-search-selectable'}));
+                frag.appendText('.');
+                frag.appendChild(local_setting_label_factory());
+                virtual_env_warning = createEl('p',{cls:'mod-warning', text:'Please enter the path of an existing directory.'});
+                virtual_env_warning.style.display = 'none';
+                frag.appendChild(virtual_env_warning);
+            }));
+
+        let virtual_env_text:TextComponent;
+        virtual_env_setting.addText(text => {
+                virtual_env_text = text;
+                text.setPlaceholder('venv')
+                .setValue(this.plugin.localSettings.virtualEnv)
+                .onChange(async (value) => {
+                    // when the field is empty, we don't consider it as an error,
+                    // but simply as no input was provided yet
+                    const isEmpty = value === "";
+
+                    if (!isEmpty && !await doesDirectoryExists(this.plugin.replacePlaceholders(value))) {
+                        virtual_env_warning.style.display = 'block';
+                    } else {
+                        // Hide the warning and save the valid value
+                        virtual_env_warning.style.display = 'none';
+                        this.plugin.localSettings.virtualEnv = value;
+                        this.plugin.debouncedSaveSettings();
+                    }
+                })
+            });
+
+        const virtual_env_extrabutton = virtual_env_setting.addExtraButton((button) => {
+            button
+                .setIcon("reset")
+                .setTooltip("Reset to default value")
+                .onClick(() => {
+                    const value = DEFAULT_LOCAL_SETTINGS.virtualEnv;
+                    virtual_env_text.setValue(value);
+                    this.plugin.localSettings.virtualEnv = value;
+                    this.plugin.debouncedSaveSettings();
+                });
+        });
 
         let recoll_datadir_warning:HTMLElement;
         const recoll_datadir_setting = new Setting(containerEl)
@@ -267,7 +320,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
             .setDesc(createFragment((frag:DocumentFragment) => {
                 frag.appendText("Absolute path (RECOLL_DATADIR) to recoll data directory 'share/recoll' on your computer.");
                 frag.appendChild(local_setting_label_factory());
-                recoll_datadir_warning = createEl('p',{cls:'mod-warning', text:'Please enter the path of an existing file.'});
+                recoll_datadir_warning = createEl('p',{cls:'mod-warning', text:'Please enter the path of an existing directory.'});
                 recoll_datadir_warning.style.display = 'none';
                 frag.appendChild(recoll_datadir_warning);
             }));
@@ -311,7 +364,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
             .setDesc(createFragment((frag:DocumentFragment) => {
                 frag.appendText("Absolute path (RECOLL_CONFDIR) to recoll configuration directory on your computer.");
                 frag.appendChild(local_setting_label_factory());
-                recoll_confdir_warning = createEl('p',{cls:'mod-warning', text:'Please enter the path of an existing file.'});
+                recoll_confdir_warning = createEl('p',{cls:'mod-warning', text:'Please enter the path of an existing directory.'});
                 recoll_confdir_warning.style.display = 'none';
                 frag.appendChild(recoll_confdir_warning);
             }));
@@ -498,8 +551,8 @@ export class RecollSearchSettingTab extends PluginSettingTab {
             recollq_text.setDisabled(status);
             recollq_extrabutton.setDisabled(status);
 
-            python_path_text.setDisabled(status);
-            python_path_extrabutton.setDisabled(status);
+            virtual_env_text.setDisabled(status);
+            virtual_env_extrabutton.setDisabled(status);
 
             recoll_datadir_text.setDisabled(status);
             recoll_datadir_extrabutton.setDisabled(status);
@@ -562,82 +615,6 @@ export class RecollSearchSettingTab extends PluginSettingTab {
 
         new Setting(containerEl).setName('Indexing of MarkDown notes').setHeading();
 
-        /*
-        const momentjs_format_setting = new Setting(containerEl)
-            .setName('Date format used in frontmatter (Javascript momentjs):')
-            .setDesc(createFragment((frag) => {
-                frag.appendText('Provide the date format that is used in the frontmatter of MarkDown notes. The format is based on ');
-                frag.createEl('a', {
-                    href: 'https://momentjscom.readthedocs.io/en/latest/moment/04-displaying/01-format',
-                    text: 'momentjs',
-                });
-                frag.appendText(' syntax.');
-            }))
-
-        let momentjs_format_text:TextComponent;
-        momentjs_format_setting.addText(text => {
-            momentjs_format_text = text;
-            text.setPlaceholder('Enter date format');
-            text.setValue(this.plugin.settings.momentjsFormat);
-            text.onChange(async (value: string) => {
-                this.plugin.settings.momentjsFormat = value;
-                this.plugin.debouncedSaveSettings();
-            })
-        });
-
-        momentjs_format_setting.addExtraButton((button) => {
-            button
-                .setIcon("reset")
-                .setTooltip("Reset to default value")
-                .onClick(() => {
-                    const value = DEFAULT_SETTINGS.momentjsFormat;
-                    momentjs_format_text.setValue(value);
-                    this.plugin.settings.momentjsFormat = value;
-                    this.plugin.debouncedSaveSettings();
-                });
-        });
-
-        const datetime_format_setting = new Setting(containerEl)
-            .setName('Date format used in frontmatter (Python datetime):')
-            .setDesc(createFragment((frag) => {
-                frag.appendText("Provide the date format that is used in the frontmatter of MarkDown notes. The format is based on Python's ");
-                frag.createEl('a', {
-                    href: 'https://docs.python.org/3/library/datetime.html#format-codes',
-                    text: 'datetime',
-                });
-                frag.appendText(' syntax. If you leave this field empty, an automatic conversion from momentjs to datetime format will be attempted.');
-            }))
-
-        let datetime_format_text:TextComponent;
-        datetime_format_setting.addText(text => {
-            datetime_format_text = text;
-            text.setPlaceholder('Enter date format');
-            text.setValue(this.plugin.settings.datetimeFormat);
-            text.onChange(async (value: string) => {
-                if(value.trim()==="") {
-                    // attempt automatic conversion
-                    value = momentJsToDatetime(momentjs_format_text.getValue());
-                    datetime_format_text.setValue(value);
-                }
-                this.plugin.settings.datetimeFormat = value;
-                this.plugin.debouncedSaveSettings();
-            })
-        });
-
-        datetime_format_setting.addExtraButton((button) => {
-            button
-                .setIcon("reset")
-                .setTooltip("Reset to default value")
-                .onClick(() => {
-                    const value = DEFAULT_SETTINGS.datetimeFormat;
-                    datetime_format_text.setValue(value);
-                    this.plugin.settings.datetimeFormat = value;
-                    this.plugin.debouncedSaveSettings();
-                });
-        });
-
-        */
-
         const create_label_setting = new Setting(containerEl)
             .setName("Creation date label")
             .setDesc("Enter the name of the property used in the frontmatter of your MarkDown notes to store the creation date. \
@@ -651,7 +628,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                 .onChange(async (value) => {
                     if(value.trim()==="") value = "";
                     this.plugin.settings.createdLabel = value;
-                    await this.plugin.debouncedSaveSettings();
+                    this.plugin.debouncedSaveSettings();
                 })
             });
 
@@ -681,7 +658,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                 .onChange(async (value) => {
                     if(value.trim()==="") value = "";
                     this.plugin.settings.modifiedLabel = value;
-                    await this.plugin.debouncedSaveSettings();
+                    this.plugin.debouncedSaveSettings();
                 })
             });
 
@@ -765,7 +742,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
             .onChange(async (value: string) => {
                 if (Object.values(AltKeyBehavior).includes(value as AltKeyBehavior)) {
                 this.plugin.settings.altKeyBehavior = value as AltKeyBehavior;
-                    await this.plugin.debouncedSaveSettings();
+                    this.plugin.debouncedSaveSettings();
                 } else {
                     console.error('Invalid option selection:', value);
                 }
