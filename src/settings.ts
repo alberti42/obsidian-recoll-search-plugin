@@ -22,7 +22,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
 
     display(): void {
         const local_setting_label_factory = ()=>createFragment((frag:DocumentFragment)=> {
-            frag.appendText('This setting only applies to this device with UUID ');
+            frag.appendText(' This setting only applies to this device with UUID ');
             const uuid_el = createEl('code',{text:this.plugin.device_UUID,cls:'recoll-search-selectable'});
             frag.appendChild(uuid_el);
             frag.appendText('.');
@@ -208,73 +208,19 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                     this.plugin.debouncedSaveSettings();
                 });
         });
-        
-/*
-        let python_path_warning: HTMLElement;
-        const python_path_setting = new Setting(containerEl)
-            .setName("Path to site-packages directory")
-            .setDesc(createFragment((frag) => {
-                frag.appendText("Absolute path (PYTHONPATH) to 'site-packages' directory on your computer, which contains the python module 'recoll'. \
-                It is highly recommend to install Python's recoll module in a virtual environment, where all other Python's modules, which \
-                are needed to index your documents, are also installed. You can create a virtual environment by typing on your terminal:");
-                frag.appendChild(createEl('pre',{text: "python3 -m venv YOUR_LOCAL_FOLDER", cls: 'recoll-search-selectable'}));
-                frag.appendText('where YOUR_LOCAL_FOLDER must be replaced with the intended location on your computer (e.g., ');
-                frag.appendChild(createEl('code',{text: "/home/your_user/.local/share/recoll/venv", cls: 'recoll-search-selectable'}));
-                frag.appendText('). If you followed these instrucitons, you should enter here ');
-                frag.appendChild(createEl('code',{text: "YOUR_LOCAL_FOLDER/lib/python3.XYZ/site-packages", cls: 'recoll-search-selectable'}));
-                frag.appendText(', where python3.XYZ should be adjusted to the python version your are currenty using.');
-                frag.appendChild(local_setting_label_factory());
-                python_path_warning = createEl('p',{cls:'mod-warning', text:'Please enter the path of an existing directory.'});
-                python_path_warning.style.display = 'none';
-                frag.appendChild(python_path_warning);
-            }));
 
-        let python_path_text:TextComponent;
-        python_path_setting.addText(text => {
-                python_path_text = text;
-                text.setPlaceholder('site-packages')
-                .setValue(this.plugin.localSettings.pythonPath)
-                .onChange(async (value) => {
-                    // when the field is empty, we don't consider it as an error,
-                    // but simply as no input was provided yet
-                    const isEmpty = value === "";
-
-                    if (!isEmpty && !await doesDirectoryExists(this.plugin.replacePlaceholders(value))) {
-                        python_path_warning.style.display = 'block';
-                    } else {
-                        // Hide the warning and save the valid value
-                        python_path_warning.style.display = 'none';
-                        this.plugin.localSettings.pythonPath = value;
-                        await this.plugin.debouncedSaveSettings();
-                    }
-                })
-            });
-
-        const python_path_extrabutton = python_path_setting.addExtraButton((button) => {
-            button
-                .setIcon("reset")
-                .setTooltip("Reset to default value")
-                .onClick(() => {
-                    const value = DEFAULT_LOCAL_SETTINGS.pythonPath;
-                    python_path_text.setValue(value);
-                    this.plugin.localSettings.pythonPath = value;
-                    this.plugin.debouncedSaveSettings();
-                });
-        });
-*/
         let virtual_env_warning: HTMLElement;
         const virtual_env_setting = new Setting(containerEl)
             .setName("Path to Python Virtual Environment directory")
             .setDesc(createFragment((frag) => {
-                frag.appendText("Python virtual environment path (VIRTUAL_ENV) to 'venv' directory on your computer, which contains the python module 'recoll'. \
-                It is highly recommend to install Python's 'recoll' module in a virtual environment. There, you should install all other Python modules that \
+                frag.appendText("Path (VIRTUAL_ENV) to the Python virtual environment on your machine, which contains the Python 'recoll' module. \
+                It is highly recommend to install the Python 'recoll' module in a virtual environment. This is where you should install any other Python modules that \
                 are needed to index your documents. You can create a virtual environment by typing on your terminal:");
-                frag.appendChild(createEl('pre',{text: "python3 -m venv <YOUR_LOCAL_FOLDER>", cls: 'recoll-search-selectable'}));
-                frag.appendText('where <YOUR_LOCAL_FOLDER> should be replaced with the intended location on your local computer (e.g., ');
-                frag.appendChild(createEl('code',{text: "<your_vault>/.obsidian/recoll/venv", cls: 'recoll-search-selectable'}));
-                frag.appendText('). If you followed these instructions, you should enter here ');
-                frag.appendChild(createEl('code',{text: "${vault_path}/.obsidian/recoll/venv", cls: 'recoll-search-selectable'}));
-                frag.appendText('.');
+                frag.appendChild(createEl('pre',{text: "python3 -m venv <VIRTUAL_ENV>", cls: 'recoll-search-selectable'}));
+                frag.appendText('where <VIRTUAL_ENV> should be replaced with the directory on your local computer containing the Python virtual environment \
+                dedicated to recoll (e.g., ');
+                frag.appendChild(createEl('code',{text: "<RECOLL_DATADIR>/venv"}));
+                frag.appendText(').');
                 frag.appendChild(local_setting_label_factory());
                 virtual_env_warning = createEl('p',{cls:'mod-warning', text:'Please enter the path of an existing directory.'});
                 virtual_env_warning.style.display = 'none';
@@ -543,76 +489,6 @@ export class RecollSearchSettingTab extends PluginSettingTab {
             });
         }
         
-
-        const disable_controller = (status:boolean) => {
-            recollindex_text.setDisabled(status);
-            recollindex_extrabutton.setDisabled(status);
-
-            recollq_text.setDisabled(status);
-            recollq_extrabutton.setDisabled(status);
-
-            virtual_env_text.setDisabled(status);
-            virtual_env_extrabutton.setDisabled(status);
-
-            recoll_datadir_text.setDisabled(status);
-            recoll_datadir_extrabutton.setDisabled(status);
-
-            recoll_confdir_text.setDisabled(status);
-            recoll_confdir_extrabutton.setDisabled(status);
-
-            path_extensions_text.setDisabled(status);
-            path_extensions_extrabutton.setDisabled(status);
-
-            if(LIBRARY_KEYWORD) {
-                library_path_extensions_text.setDisabled(status);
-                library_path_extensions_extrabutton.setDisabled(status);
-            }
-            
-            if(status) {
-                recoll_engine_paths_heading.descEl.classList.add('mod-warning');
-            } else {
-                recoll_engine_paths_heading.descEl.classList.remove('mod-warning');
-            }
-        };
-
-
-        let busy = false;
-        // Function to update the status
-        const updateStatus = async (force?:boolean) => {
-            if(busy) return;
-            busy = true;
-            let recollindex_status = previous_recollindex_status;
-            try{
-                recollindex_status = recoll.isRecollindexRunning();
-                if(!force && recollindex_status===previous_recollindex_status) return;
-                
-                if(recollindex_status) {
-                    status_span.classList.remove('mod-warning');
-                    status_span.classList.add('mod-success')
-                    status_span.innerText = RUNNING;
-                    status_button.setButtonText("Stop");
-                    status_button.setTooltip("Stop recollindex");
-                    disable_controller(true);
-                } else {
-                    status_span.classList.remove('mod-success');
-                    status_span.classList.add('mod-warning')
-                    status_span.innerText = NOT_RUNNING;
-                    status_button.setButtonText("Start");
-                    status_button.setTooltip("Start recollindex");
-                    disable_controller(false);
-                }
-            } finally {
-                previous_recollindex_status = recollindex_status;
-                busy = false;
-            }
-        }
-
-        // Set an interval to update the status every 300 milliseconds
-        setInterval(updateStatus, 200);
-
-        // First call to configure the initial status
-        updateStatus(true);
-
         new Setting(containerEl).setName('Indexing of MarkDown notes').setHeading();
 
         const create_label_setting = new Setting(containerEl)
@@ -632,7 +508,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                 })
             });
 
-        create_label_setting.addExtraButton((button) => {
+        let create_label_extrabutton = create_label_setting.addExtraButton((button) => {
             button
                 .setIcon("reset")
                 .setTooltip("Reset to default value")
@@ -662,7 +538,7 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                 })
             });
 
-        modify_label_setting.addExtraButton((button) => {
+        let modify_label_extrabutton = modify_label_setting.addExtraButton((button) => {
             button
                 .setIcon("reset")
                 .setTooltip("Reset to default value")
@@ -759,6 +635,84 @@ export class RecollSearchSettingTab extends PluginSettingTab {
                     this.plugin.debouncedSaveSettings();
                 });
         });
+
+
+        /* Manage the status of the controller */
+
+        const disable_controller = (status:boolean) => {
+            recollindex_text.setDisabled(status);
+            recollindex_extrabutton.setDisabled(status);
+
+            recollq_text.setDisabled(status);
+            recollq_extrabutton.setDisabled(status);
+
+            virtual_env_text.setDisabled(status);
+            virtual_env_extrabutton.setDisabled(status);
+
+            recoll_datadir_text.setDisabled(status);
+            recoll_datadir_extrabutton.setDisabled(status);
+
+            recoll_confdir_text.setDisabled(status);
+            recoll_confdir_extrabutton.setDisabled(status);
+
+            path_extensions_text.setDisabled(status);
+            path_extensions_extrabutton.setDisabled(status);
+
+            create_label_setting.setDisabled(status);
+            create_label_extrabutton.setDisabled(status);
+
+            modify_label_setting.setDisabled(status);
+            modify_label_extrabutton.setDisabled(status);
+
+            if(LIBRARY_KEYWORD) {
+                library_path_extensions_text.setDisabled(status);
+                library_path_extensions_extrabutton.setDisabled(status);
+            }
+            
+            if(status) {
+                recoll_engine_paths_heading.descEl.classList.add('mod-warning');
+            } else {
+                recoll_engine_paths_heading.descEl.classList.remove('mod-warning');
+            }
+        };
+
+        let busy = false;
+        // Function to update the status
+        const updateStatus = async (force?:boolean) => {
+            if(busy) return;
+            busy = true;
+            let recollindex_status = previous_recollindex_status;
+            try{
+                recollindex_status = recoll.isRecollindexRunning();
+                if(!force && recollindex_status===previous_recollindex_status) return;
+                
+                if(recollindex_status) {
+                    status_span.classList.remove('mod-warning');
+                    status_span.classList.add('mod-success')
+                    status_span.innerText = RUNNING;
+                    status_button.setButtonText("Stop");
+                    status_button.setTooltip("Stop recollindex");
+                    disable_controller(true);
+                } else {
+                    status_span.classList.remove('mod-success');
+                    status_span.classList.add('mod-warning')
+                    status_span.innerText = NOT_RUNNING;
+                    status_button.setButtonText("Start");
+                    status_button.setTooltip("Start recollindex");
+                    disable_controller(false);
+                }
+            } finally {
+                previous_recollindex_status = recollindex_status;
+                busy = false;
+            }
+        }
+
+        // Set an interval to update the status every 300 milliseconds
+        setInterval(updateStatus, 200);
+
+        // First call to configure the initial status
+        updateStatus(true);
+
     }
 
     hide(): void {   

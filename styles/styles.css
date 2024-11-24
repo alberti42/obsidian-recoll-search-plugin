@@ -79,7 +79,11 @@
 }
 
 .recoll-search-settings input[disabled] {
-  opacity: 0.7;
+  opacity: 0.3;
+}
+
+.recoll-search-settings .extra-setting-button.is-disabled {
+  opacity: 0.3;
 }
 
 .recoll-search-settings code {
