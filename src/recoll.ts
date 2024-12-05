@@ -266,7 +266,7 @@ async function queuedRunRecollIndex(
                 ], 
                 {
                     env,
-                    detached: true, // Allow the process to run independently of its parent
+                    detached: false, // Allow the process to run independently of its parent
                     stdio: ['ignore','ignore', stdErrOption], // Ignore stdin, but allow stderr for logging
                 });
         

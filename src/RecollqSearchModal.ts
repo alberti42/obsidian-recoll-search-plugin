@@ -113,6 +113,14 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
     // Helper function to call recollq using spawn and return real search results
     private executeRecollq(query: string): Promise<RecollResult[]> {
         return new Promise((resolve, reject) => {
+
+            const recollDataDir = this.plugin.replacePlaceholders(this.plugin.localSettings.recollDataDir);
+
+            const env = {
+                ...process.env,
+                RECOLL_DATADIR: recollDataDir,  // Add the path to recoll's share folder
+            };
+
             // Use spawn to execute the recollq command
 
             // -F <field name list> : output exactly these fields for each result.
@@ -123,7 +131,17 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
             // also want option -N in this case.
             // -S fld : sort by field <fld>
             // -c <configdir> : specify configuration directory, overriding $RECOLL_CONFDIR.
-            const recollq = spawn(this.recollq_cmd, ['-c', this.plugin.replacePlaceholders(this.plugin.localSettings.recollConfDir), '-F', 'url mtype created modified tags relevancyrating', '-S', 'relevancyrating', query]);
+            if(this.plugin.settings.debug) {
+                console.log({"cmd": 
+                    [this.recollq_cmd, '-c', this.plugin.replacePlaceholders(this.plugin.localSettings.recollConfDir), '-F', '"url mtype created modified tags relevancyrating"', '-S', 'relevancyrating', query].join(" ")
+                });
+            }
+            const recollq = spawn(this.recollq_cmd,
+                ['-c', this.plugin.replacePlaceholders(this.plugin.localSettings.recollConfDir), '-F', 'url mtype created modified tags relevancyrating', '-S', 'relevancyrating', query],
+                {
+                    env,
+                    detached: false, // Allow the process to run independently of its parent
+                });
 
             let stdout = '';
             let stderr = '';
@@ -163,6 +181,7 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
                 const results: RecollResult[] = [];
 
                 // Process the output from recollq
+                console.log(stdout);
                 const lines = stdout.trim().split('\n');
                 for (const line of lines.slice(2)) {
                     const decodedFields = line.split(' ').map((field:string) => Buffer.from(field, 'base64').toString('utf-8'));
