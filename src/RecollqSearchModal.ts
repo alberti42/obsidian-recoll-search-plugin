@@ -181,7 +181,6 @@ export class RecollqSearchModal extends SuggestModal<RecollResult> {
                 const results: RecollResult[] = [];
 
                 // Process the output from recollq
-                console.log(stdout);
                 const lines = stdout.trim().split('\n');
                 for (const line of lines.slice(2)) {
                     const decodedFields = line.split(' ').map((field:string) => Buffer.from(field, 'base64').toString('utf-8'));
