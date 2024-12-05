@@ -240,7 +240,6 @@ async function queuedRunRecollIndex(
             ...process.env,
             RCLMD_CREATED: settings.createdLabel,
             RCLMD_MODIFIED: settings.modifiedLabel,
-            RCLMD_DATEFORMAT: settings.datetimeFormat,
             PATH, // Ensure Homebrew Python and binaries are in the PATH
             VIRTUAL_ENV: virtualEnv, // Add the path to custom Python packages
             RECOLL_DATADIR: recollDataDir,  // Add the path to recoll's share folder
