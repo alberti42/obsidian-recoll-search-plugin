@@ -35,7 +35,7 @@ import { homedir } from "os";
 export default class RecollSearch extends Plugin {
 	settings: RecollSearchSettings = { ...DEFAULT_SETTINGS };
     localSettings: RecollSearchLocalSettings = { ...DEFAULT_LOCAL_SETTINGS };
-    platform: string;
+    platform: "win" | "mac" | "linux" | "mobile" | "unknown";
     device_UUID: string; // unique ID assigned to each device
     
     private exit_cb: NodeJS.ExitListener | null = null;

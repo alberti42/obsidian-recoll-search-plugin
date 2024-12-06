@@ -258,10 +258,14 @@ async function queuedRunRecollIndex(
         // -x:  process will stay alive even if it cannot connect to the X11 server, which is here not needed
         // -c <configdir> : specify configuration directory, overriding $RECOLL_CONFDIR.
         // -z : reset database before starting indexing
+        let options = ['-m', '-w0', '-x', '-c', plugin.replacePlaceholders(localSettings.recollConfDir)];
+        if(plugin.platform!=='win') {
+            options.push('-O');
+        }
         recollindexProcess = spawn(
                 recollindex_cmd,
                 [
-                    ...['-m', '-O', '-w0', '-x', '-c', plugin.replacePlaceholders(localSettings.recollConfDir)],
+                    ...options,
                     ...recollindex_extra_options
                 ], 
                 {
